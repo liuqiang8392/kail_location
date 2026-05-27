@@ -120,6 +120,7 @@ fun HistoryScreen(
                             onDeleteClick = { itemToDelete = record },
                             onEditClick = { itemToEdit = record }
                         )
+                        HorizontalDivider()
                     }
                 }
             }
