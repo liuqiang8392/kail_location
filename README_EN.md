@@ -1,44 +1,78 @@
 # Kail Location
 
-Route simulation, location simulation, navigation simulation, cadence simulation, virtual location, and NFC simulation.
+> A spatial control deck for developers and professionals — route simulation, location simulation, navigation simulation, cadence simulation, virtual location, and NFC simulation.
+
+<p align="center">
+  <a href="https://play.google.com/store/apps/details?id=com.kail.location">Download on Google Play</a>
+  ·
+  <a href="传感器参数.md">Sensor Parameters</a>
+  ·
+  <a href="README.md">中文说明</a>
+</p>
+
+<p align="center">
+  <img alt="Language" src="https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" />
+  <img alt="UI" src="https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" />
+  <img alt="Architecture" src="https://img.shields.io/badge/MVVM-111827?style=for-the-badge" />
+  <img alt="License" src="https://img.shields.io/badge/GPL--3.0-0F172A?style=for-the-badge" />
+</p>
+
+---
+
+## Core Modules
+
+| Module | Capability |
+| --- | --- |
+| Route Simulation | Build and replay routes for location-related debugging. |
+| Location Simulation | Simulate device location in authorized environments for testing. |
+| Navigation Simulation | Emulate navigation flows to inspect route, heading, and state changes. |
+| Cadence Simulation | Generate cadence data for sensor-related debugging. |
+| Virtual Location | Provide virtual coordinates for location logic validation. |
+| NFC Simulation | NFC simulation for controlled debugging scenarios. |
+
+---
 
 ## Download
 
-[App Download](https://play.google.com/store/apps/details?id=com.kail.location)
+[Go to Google Play](https://play.google.com/store/apps/details?id=com.kail.location)
+
+---
 
 ## Documentation
 
-- [Sensor parameters](传感器参数.md)
-- [中文说明](README.md) | [English README](README_EN.md)
+- [Sensor Parameters](传感器参数.md)
+- [中文说明](README.md)
+- [English README](README_EN.md)
+
+---
 
 ## Log Location
-
-Logs are located at:
 
 ```text
 /storage/emulated/0/Documents/KailLocation/logs/
 ```
 
-## Feature Requests
-
-If you have feature requests, please open an issue.
-
-## Usage Notice
-
-This software is intended **only** for developers or professionals for debugging and testing.
+---
 
 ## Tech Stack
 
-- Language: Kotlin
-- UI: Jetpack Compose
-- Architecture: MVVM
+| Layer | Technology |
+| --- | --- |
+| Language | Kotlin |
+| UI | Jetpack Compose |
+| Architecture | MVVM |
 
 More features are under active development.
 
-## Contact
+---
 
-- Telegram: https://t.me/kaillcation
-- Email: kailkali23143@gmail.com
+## Usage Notice
+
+This software is intended only for developers or professionals performing lawful, authorized, and controlled debugging or testing.
+
+Feature requests and feedback are welcome via issues.
+
+---
 
 ## Usage Terms
 
@@ -54,6 +88,15 @@ More features are under active development.
 
 6. Due to the diversity and complexity of hardware and software environments, the functions provided by this software cannot be guaranteed to work correctly in all circumstances or always meet your expectations. This software and its author shall not be liable for any direct or indirect damages arising therefrom.
 
+---
+
+## Contact
+
+- Telegram: https://t.me/kaillcation
+- Email: kailkali23143@gmail.com
+
+---
+
 ## References and Thanks
 
 - https://github.com/ZCShou/GoGoGo
@@ -61,6 +104,8 @@ More features are under active development.
 - https://github.com/ella8192/Portal
 - https://github.com/Hilaver/MockGPS
 - https://github.com/Acooldog/fuckschoolrun
+
+---
 
 ## Support the Author
 
@@ -70,9 +115,9 @@ More features are under active development.
 TVvudxmNTwzRFe3z7ts9srZE1srkqXgmxm
 ```
 
-## License
+---
 
-本项目基于 GNU 通用公共许可证 v3.0（GPL-3.0）开源。
+## License
 
 This project is licensed under the GNU General Public License v3.0 (GPL-3.0).
 

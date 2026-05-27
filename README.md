@@ -1,44 +1,78 @@
 # Kail Location
 
-路线模拟、位置模拟、导航模拟、步频模拟、虚拟定位、NFC 模拟。
+> 调试者的空间坐标实验舱：路线模拟、位置模拟、导航模拟、步频模拟、虚拟定位与 NFC 模拟。
+
+<p align="center">
+  <a href="https://play.google.com/store/apps/details?id=com.kail.location">App 下载</a>
+  ·
+  <a href="传感器参数.md">传感器参数</a>
+  ·
+  <a href="README_EN.md">English README</a>
+</p>
+
+<p align="center">
+  <img alt="Language" src="https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" />
+  <img alt="UI" src="https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" />
+  <img alt="Architecture" src="https://img.shields.io/badge/MVVM-111827?style=for-the-badge" />
+  <img alt="License" src="https://img.shields.io/badge/GPL--3.0-0F172A?style=for-the-badge" />
+</p>
+
+---
+
+## 星舰核心能力
+
+| 模块 | 能力 |
+| --- | --- |
+| 路线模拟 | 构建并回放调试路线，用于验证位置相关业务流程。 |
+| 位置模拟 | 在授权环境下模拟设备位置，辅助开发与专业测试。 |
+| 导航模拟 | 模拟导航过程，观察路线、方向与状态变化。 |
+| 步频模拟 | 模拟步频数据，用于传感器相关场景调试。 |
+| 虚拟定位 | 提供虚拟坐标能力，便于定位逻辑验证。 |
+| NFC 模拟 | 面向调试场景的 NFC 模拟能力。 |
+
+---
 
 ## 下载
 
-[App 下载](https://play.google.com/store/apps/details?id=com.kail.location)
+[前往 Google Play 下载](https://play.google.com/store/apps/details?id=com.kail.location)
 
-## 文档
+---
+
+## 文档导航
 
 - [传感器参数](传感器参数.md)
-- [中文说明](README.md) | [English README](README_EN.md)
+- [中文说明](README.md)
+- [English README](README_EN.md)
+
+---
 
 ## 日志位置
-
-日志位于：
 
 ```text
 /storage/emulated/0/Documents/KailLocation/logs/
 ```
 
-## 功能反馈
-
-大家需要什么功能可以在 issues 告诉我。
-
-## 使用说明
-
-本软件仅供开发人员或专业人士调试使用。
+---
 
 ## 技术栈
 
-- 语言：Kotlin
-- UI：Jetpack Compose
-- 架构：MVVM
+| 层级 | 技术 |
+| --- | --- |
+| 语言 | Kotlin |
+| UI | Jetpack Compose |
+| 架构 | MVVM |
 
 更多功能正在开发中。
 
-## 联系作者
+---
 
-- Telegram: https://t.me/kaillcation
-- Email: kailkali23143@gmail.com
+## 使用说明
+
+本软件仅供开发人员或专业人士在合法、授权、可控的环境中进行调试与测试。
+
+如果你有功能建议或问题反馈，欢迎在 issues 中提出。
+
+---
 
 ## 使用条例
 
@@ -54,6 +88,15 @@
 
 6. 由于计算机软硬件环境的差异性和复杂性，本软件所提供的各项功能不能保证在任何情况下都能正常执行或达到您所期望的结果，本软件及本软件作者不承担由此引起的直接和间接损害责任。
 
+---
+
+## 联系作者
+
+- Telegram: https://t.me/kaillcation
+- Email: kailkali23143@gmail.com
+
+---
+
 ## 参考与感谢
 
 - https://github.com/ZCShou/GoGoGo
@@ -62,6 +105,8 @@
 - https://github.com/Hilaver/MockGPS
 - https://github.com/Acooldog/fuckschoolrun
 
+---
+
 ## 赞赏作者
 
 <img width="538" height="397" alt="屏幕截图 2026-01-07 174952" src="https://github.com/user-attachments/assets/eca818b7-d450-4c0b-ae21-c1ad9f493684" />
@@ -69,6 +114,8 @@
 ```text
 TVvudxmNTwzRFe3z7ts9srZE1srkqXgmxm
 ```
+
+---
 
 ## License
 
