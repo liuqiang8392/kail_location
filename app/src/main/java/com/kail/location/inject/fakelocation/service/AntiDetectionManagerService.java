@@ -1,9 +1,9 @@
-package com.lerist.inject.fakelocation.service;
+package com.kail.location.inject.fakelocation.service;
 
-import com.lerist.inject.utils.LicenseStateManager;
-import com.lerist.inject.utils.PackageAntiDetectionConfig;
+import com.kail.location.inject.utils.LicenseStateManager;
+import com.kail.location.inject.utils.PackageAntiDetectionConfig;
 import java.util.List;
-import com.lerist.inject.fakelocation.aidl.IMockAntiDetectionManager;
+import com.kail.location.inject.fakelocation.aidl.IMockAntiDetectionManager;
 
 public class AntiDetectionManagerService extends IMockAntiDetectionManager.Stub {
 

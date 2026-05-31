@@ -1,4 +1,4 @@
-package com.lerist.inject.fakelocation.listener;
+package com.kail.location.inject.fakelocation.listener;
 
 import android.os.Binder;
 import android.os.IBinder;
@@ -27,7 +27,7 @@ public interface IOnMockLocationListener extends IInterface {
             public void onMockLocationChanged(String provider, int status, boolean enabled) {
                 Parcel data = Parcel.obtain();
                 try {
-                    data.writeInterfaceToken("com.lerist.common.ipc.IOnMockLocationListener");
+                    data.writeInterfaceToken("com.kail.location.ipc.IOnMockLocationListener");
                     data.writeString(provider);
                     data.writeInt(status);
                     data.writeInt(enabled ? 1 : 0);
@@ -35,6 +35,7 @@ public interface IOnMockLocationListener extends IInterface {
                         return;
                     }
                     Stub.getDefaultImpl().onMockLocationChanged(provider, status, enabled);
+                } catch (android.os.RemoteException ignored) {
                 } finally {
                     data.recycle();
                 }
@@ -45,7 +46,7 @@ public interface IOnMockLocationListener extends IInterface {
             if (binder == null) {
                 return null;
             }
-            IInterface localInterface = binder.queryLocalInterface("com.lerist.common.ipc.IOnMockLocationListener");
+            IInterface localInterface = binder.queryLocalInterface("com.kail.location.ipc.IOnMockLocationListener");
             return (localInterface == null || !(localInterface instanceof IOnMockLocationListener)) ? new Proxy(binder) : (IOnMockLocationListener) localInterface;
         }
 

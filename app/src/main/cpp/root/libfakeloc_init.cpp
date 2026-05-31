@@ -8,16 +8,16 @@
 //   doRun(JavaVM**, arg) -> AttachCurrentThread -> init(env)
 //   init(env):
 //     - verify payload MD5 and release signature
-//     - build a DexClassLoader over /data/fakeloc/libfakeloc.so with an opt
-//       directory of /data/fakeloc/system_dex
-//     - load com.lerist.inject.fakelocation.InjectDex
+//     - build a DexClassLoader over /data/kail-loc/libfakeloc.so with an opt
+//       directory of /data/kail-loc/system_dex
+//     - load com.kail.location.inject.fakelocation.InjectDex
 //     - call InjectDex.init(context) reflectively
 
 #include "fakeloc_common.h"
 
 using namespace fakeloc;
 
-static const char *kOptDir = "/data/fakeloc/system_dex";
+static const char *kOptDir = "/data/kail-loc/system_dex";
 static bool gInitLoaded = false;     // byte_7038
 
 // ---------------------------------------------------------------------------
@@ -52,10 +52,10 @@ static void init(JNIEnv *env) {
 
   jobject loader = env->NewObject(dclClass, dclCtor, dexPath, optDir, nullptr, parentLoader);
 
-  jstring injectClassName = env->NewStringUTF("com.lerist.inject.fakelocation.InjectDex");
+  jstring injectClassName = env->NewStringUTF("com.kail.location.inject.fakelocation.InjectDex");
   jclass injectClass = (jclass)env->CallObjectMethod(loader, dclLoad, injectClassName);
 
-  jmethodID initMethod = env->GetMethodID(
+  jmethodID initMethod = env->GetStaticMethodID(
       injectClass, "init", "(Ljava/lang/Object;)[Ljava/lang/Object;");
   env->CallStaticObjectMethod(injectClass, initMethod, context);
 

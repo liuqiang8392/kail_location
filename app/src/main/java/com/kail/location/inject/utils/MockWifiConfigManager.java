@@ -1,4 +1,4 @@
-package com.lerist.inject.utils;
+package com.kail.location.inject.utils;
 
 import android.net.wifi.ScanResult;
 import android.net.wifi.SupplicantState;
@@ -8,7 +8,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
-import com.lerist.inject.fakelocation.model.MockWifiNetwork;
+import com.kail.location.inject.fakelocation.model.MockWifiNetwork;
 
 public class MockWifiConfigManager {
     private static boolean mockWifiEnabled;

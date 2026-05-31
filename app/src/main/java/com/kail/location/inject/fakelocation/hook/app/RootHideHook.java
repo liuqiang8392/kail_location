@@ -1,12 +1,12 @@
-package com.lerist.inject.fakelocation.hook.app;
+package com.kail.location.inject.fakelocation.hook.app;
 
 import android.os.Environment;
 import android.os.FileObserver;
 import android.text.TextUtils;
-import com.lerist.inject.utils.ReflectionUtils;
-import com.lerist.inject.utils.HideRootServiceManager;
-import com.lerist.inject.utils.AntiDetectionServiceManager;
-import com.lerist.lib.lhooker.LHooker;
+import com.kail.location.inject.utils.ReflectionUtils;
+import com.kail.location.inject.utils.HideRootServiceManager;
+import com.kail.location.inject.utils.AntiDetectionServiceManager;
+import com.kail.location.lib.lhooker.LHooker;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -47,7 +47,7 @@ public class RootHideHook {
     /* JADX INFO: renamed from: ֏.֏.ހ.֏.ށ.ހ$֏, reason: contains not printable characters */
     static class HiddenFakelocArtifacts extends ArrayList<String> {
         HiddenFakelocArtifacts() {
-            add("/data/fakeloc");
+            add("/data/kail-loc");
             add("liblhooker.so");
             add("liblhooker64.so");
             add("libfakeloc.so");
@@ -116,8 +116,8 @@ public class RootHideHook {
             put("/mnt/user/0/primary/Android/data", "/mnt/user/0/primary/" + Environment.DIRECTORY_DOCUMENTS + "");
             put("/storage/emulated/0/Android/data", "/storage/emulated/0/" + Environment.DIRECTORY_DOCUMENTS + "");
             put("/storage/sdcard/Android/data", "/storage/sdcard/" + Environment.DIRECTORY_DOCUMENTS + "");
-            put("/data/fakeloc", "/_system");
-            put("_/data/fakeloc", "/data/fakeloc");
+            put("/data/kail-loc", "/_system");
+            put("_/data/kail-loc", "/data/kail-loc");
             put("/data/data/com.topjohnwu.magisk", "/_data/data/com.topjohnwu.magisk");
             put("/sdcard/MagiskManager", "/_sdcard/MagiskManager");
         }
@@ -129,7 +129,7 @@ public class RootHideHook {
             put("maps", "status");
             put("su", "fs");
             put("XposedBridge.jar", "_XposedBridge.jar");
-            put("_/data/fakeloc", "/data/fakeloc");
+            put("_/data/kail-loc", "/data/kail-loc");
             Iterator<String> it = RootHideHook.hiddenFakelocArtifacts.iterator();
             while (it.hasNext()) {
                 put(it.next(), "_null");
@@ -204,7 +204,10 @@ public class RootHideHook {
                 }
                 String str = new String(bArr);
                 if (str.endsWith("\n")) {
-                    writeRelocatedCommand(relocateCommand(str));
+                    try {
+                        writeRelocatedCommand(relocateCommand(str));
+                    } catch (java.io.IOException ignored) {
+                    }
                     clearCommandBuffer();
                 }
             }
@@ -706,6 +709,7 @@ public class RootHideHook {
         sb.append(uri4);
         log("File4", obj, sb.toString());
         String path = uri.getPath();
+        try {
         if (!TextUtils.isEmpty(path)) {
             if (HideRootServiceManager.getInstance().isHideRootEnabled()) {
                 Iterator<String> it = rootPathRedirects.keySet().iterator();
@@ -762,6 +766,8 @@ public class RootHideHook {
                     }
                 }
             }
+        }
+        } catch (java.net.URISyntaxException ignored) {
         }
         File4_bak(obj, uri4);
         try {
@@ -2582,10 +2588,10 @@ public class RootHideHook {
             LHooker.hookConstructor(File.class, new Class[]{URI.class}, RootHideHook.class, "File4", "File4_bak", "File4_copy");
             Class cls = Integer.TYPE;
             LHooker.hookConstructor(FileObserver.class, new Class[]{String.class, cls}, RootHideHook.class, "FileObserver", "FileObserver_bak", "FileObserver_copy");
-            LHooker.hookMethodWithMethods(FileObserver.class, "onEvent", Void.TYPE, new Class[]{cls, String.class}, RootHideHook.class, "FileObserver_onEvent", "FileObserver_onEvent_bak", "FileObserver_onEvent_copy");
+            LHooker.hookMethodByNames(FileObserver.class, "onEvent", Void.TYPE, new Class[]{cls, String.class}, RootHideHook.class, "FileObserver_onEvent", "FileObserver_onEvent_bak", "FileObserver_onEvent_copy");
             LHooker.hookConstructor(ProcessBuilder.class, new Class[]{String[].class}, RootHideHook.class, "ProcessBuilder", "ProcessBuilder_bak", "ProcessBuilder_copy");
             LHooker.hookConstructor(ProcessBuilder.class, new Class[]{List.class}, RootHideHook.class, "ProcessBuilder_Q", "ProcessBuilder_Q_bak", "ProcessBuilder_Q_copy");
-            LHooker.hookMethodWithMethods(Runtime.class, "exec", Process.class, new Class[]{String[].class, String[].class, File.class}, RootHideHook.class, "exec", "exec_bak", "exec_copy");
+            LHooker.hookMethodByNames(Runtime.class, "exec", Process.class, new Class[]{String[].class, String[].class, File.class}, RootHideHook.class, "exec", "exec_bak", "exec_copy");
             LHooker.hookMethodWithBackup(ProcessBuilder.class, "start", Process.class, null, RootHideHook.class, "ProcessBuilder_start", "ProcessBuilder_start_bak");
             LHooker.hookMethodWithBackup(Class.forName("java.lang.UNIXProcess"), "getOutputStream", OutputStream.class, null, RootHideHook.class, "UNIXProcess_getOutputStream", "UNIXProcess_getOutputStream_bak");
         } catch (Throwable th) {

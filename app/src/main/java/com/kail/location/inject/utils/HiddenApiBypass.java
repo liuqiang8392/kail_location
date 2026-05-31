@@ -1,4 +1,4 @@
-package com.lerist.inject.utils;
+package com.kail.location.inject.utils;
 
 import android.os.Build;
 import android.util.Log;

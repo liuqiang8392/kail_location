@@ -20,7 +20,7 @@
 //     ldr  pc, [r0, #off]    ; jump to method->entry_point_from_quick_code
 //     <ArtMethod*>
 //
-// JNI surface (com.lerist.lib.lhooker.LHooker):
+// JNI surface (com.kail.location.lib.lhooker.LHooker):
 //   init, findMethodNative, hookMethodNative, shouldVisiblyInit.
 //
 // NOTE: ART internal layout is highly version-sensitive.  The per-API offset
@@ -218,7 +218,7 @@ static int installHook(uintptr_t target, uintptr_t hook) {
 extern "C" {
 
 JNIEXPORT jint JNICALL
-Java_com_lerist_lib_lhooker_LHooker_init(JNIEnv *env, jobject, jint sdkInt) {
+Java_com_kail_location_lib_lhooker_LHooker_init(JNIEnv *env, jobject, jint sdkInt) {
   int sig = fakeloc::verifyReleaseSignature(env);
   if (sig != 0 && sig != -2) {
     gInited = -1;
@@ -253,7 +253,9 @@ Java_com_lerist_lib_lhooker_LHooker_init(JNIEnv *env, jobject, jint sdkInt) {
     }
     case 31:
     case 32:
-    case 33: {
+    case 33:
+    case 34:
+    case 35: {
       jclass executable = env->FindClass("java/lang/reflect/Executable");
       gArtMethodField = env->GetFieldID(executable, "artMethod", "J");
       gEntryPointOffset = 24; gArtMethodSize = 32;
@@ -282,7 +284,9 @@ Java_com_lerist_lib_lhooker_LHooker_init(JNIEnv *env, jobject, jint sdkInt) {
     }
     case 31:
     case 32:
-    case 33: {
+    case 33:
+    case 34:
+    case 35: {
       jclass executable = env->FindClass("java/lang/reflect/Executable");
       gArtMethodField = env->GetFieldID(executable, "artMethod", "J");
       gEntryPointOffset = 20; gArtMethodSize = 24;
@@ -300,7 +304,7 @@ Java_com_lerist_lib_lhooker_LHooker_init(JNIEnv *env, jobject, jint sdkInt) {
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_lerist_lib_lhooker_LHooker_findMethodNative(
+Java_com_kail_location_lib_lhooker_LHooker_findMethodNative(
     JNIEnv *env, jobject, jclass clazz, jstring nameStr, jstring sigStr) {
   if (gInited != 0)
     return nullptr;
@@ -329,7 +333,7 @@ Java_com_lerist_lib_lhooker_LHooker_findMethodNative(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_lerist_lib_lhooker_LHooker_hookMethodNative(
+Java_com_kail_location_lib_lhooker_LHooker_hookMethodNative(
     JNIEnv *env, jobject, jobject target, jobject hook, jobject backup, jobject backup2) {
   if (gInited != 0)
     return JNI_FALSE;
@@ -370,7 +374,7 @@ Java_com_lerist_lib_lhooker_LHooker_hookMethodNative(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_lerist_lib_lhooker_LHooker_shouldVisiblyInit(JNIEnv *, jobject) {
+Java_com_kail_location_lib_lhooker_LHooker_shouldVisiblyInit(JNIEnv *, jobject) {
   return gSdkInt > 29 ? JNI_TRUE : JNI_FALSE;
 }
 

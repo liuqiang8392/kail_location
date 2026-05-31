@@ -106,8 +106,10 @@ static void waitForRemoteStop() {
 
   uint64_t start = nowMillis();
   int status = 0;
-  pid_t r = waitpid(gTargetPid, &status, WUNTRACED);
-  while (r != -1) {
+  while (true) {
+    if (nowMillis() - start > 200ULL)
+      return;
+    pid_t r = waitpid(gTargetPid, &status, WUNTRACED | WNOHANG);
     if (r == gTargetPid) {
       int stopSig = status & 0x7f;
       if (((status + 1) & 0x7e) != 0) {
@@ -115,12 +117,10 @@ static void waitForRemoteStop() {
       } else if ((status & 0x7f) == 0 || stopSig == 0x7f) {
         return;
       }
-    } else {
-      if (nowMillis() - start > 0x80)
-        return;
+    } else if (r == -1) {
+      return;
     }
-    usleep(1);
-    r = waitpid(gTargetPid, &status, WUNTRACED);
+    usleep(1000);
   }
 }
 
@@ -265,11 +265,38 @@ static uint32_t callRemoteFunction(uint32_t func, int argc, ...) {
   ptraceWithRetry("call", PTRACE_SETREGS, 0, (uintptr_t)&regs);
   ptraceWithRetry("call", PTRACE_CONT, 0, 0);
 
+  // Watchdog: avoid permafreeze if remote func hangs (e.g. linker mutex
+  // contention with sibling threads in system_server). See inject64.cpp for
+  // the same pattern.
   int status = 0;
-  while (waitpid(gTargetPid, &status, WUNTRACED) == gTargetPid) {
-    if ((status & 0xff7f) == 0xb7f)
+  uint64_t startMs = nowMillis();
+  bool timed_out = false;
+  while (true) {
+    if (nowMillis() - startMs > 5000ULL) {
+      __android_log_print(ANDROID_LOG_ERROR, kInjectorLogTag,
+                          "callRemoteFunction watchdog tripped (5s); aborting");
+      timed_out = true;
       break;
-    ptraceWithRetry("waitpid", PTRACE_CONT, 0, 0);
+    }
+    pid_t r = waitpid(gTargetPid, &status, WUNTRACED | WNOHANG);
+    if (r == gTargetPid) {
+      if ((status & 0xff7f) == 0xb7f)
+        break;
+      ptraceWithRetry("waitpid", PTRACE_CONT, 0, 0);
+      continue;
+    }
+    if (r == -1) {
+      timed_out = true;
+      break;
+    }
+    usleep(2000);
+  }
+
+  if (timed_out) {
+    ptraceWithRetry("restore", PTRACE_SETREGS, 0, (uintptr_t)&backup);
+    ptraceWithRetry("detach", PTRACE_DETACH, 0, 0);
+    kill(gTargetPid, SIGCONT);
+    return 0;
   }
 
   ptraceWithRetry("return", PTRACE_GETREGS, 0, (uintptr_t)&regs);
@@ -471,7 +498,7 @@ static int injectMain(int argc, char **argv) {
                       pid, processName, libraryPath);
 
   if (!ok || (pid < 1 && processName == nullptr) || !libraryPath || !packageName ||
-      strcmp("com.lerist.fakelocation", packageName))
+      strcmp("com.kail.location", packageName))
     exit(-1);
 
   if (access(libraryPath, R_OK) == -1) {
@@ -480,7 +507,7 @@ static int injectMain(int argc, char **argv) {
     exit(-1);
   }
 
-  int rc = injectLibraryIntoProcess(pid, libraryPath, "Lerist.");
+  int rc = injectLibraryIntoProcess(pid, libraryPath, "Kail.");
   if (rc) {
     printf("Inject fail %d.\n", rc);
     __android_log_print(ANDROID_LOG_ERROR, "LINJECT", "Inject fail %d.\n", rc);

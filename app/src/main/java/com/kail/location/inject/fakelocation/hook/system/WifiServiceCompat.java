@@ -1,9 +1,9 @@
-package com.lerist.inject.fakelocation.hook.system;
+package com.kail.location.inject.fakelocation.hook.system;
 
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
 import android.os.Binder;
-import com.lerist.inject.utils.ReflectionUtils;
+import com.kail.location.inject.utils.ReflectionUtils;
 import java.util.List;
 
 public class WifiServiceCompat {

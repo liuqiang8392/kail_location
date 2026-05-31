@@ -1,4 +1,4 @@
-package com.lerist.inject.utils;
+package com.kail.location.inject.utils;
 
 import android.location.Location;
 import android.os.Build;
@@ -20,7 +20,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import com.lerist.inject.fakelocation.model.CellTowerInfo;
+import com.kail.location.inject.fakelocation.model.CellTowerInfo;
 
 public class CellInfoFactory {
     private static Location currentLocation;

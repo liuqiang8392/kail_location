@@ -1,10 +1,10 @@
-package com.lerist.inject.fakelocation.hook.app;
+package com.kail.location.inject.fakelocation.hook.app;
 
 import android.os.Build;
-import com.lerist.inject.utils.ReflectionUtils;
-import com.lerist.inject.utils.AntiDetectionServiceManager;
-import com.lerist.inject.utils.LAntiDetect;
-import com.lerist.lib.lhooker.LHooker;
+import com.kail.location.inject.utils.ReflectionUtils;
+import com.kail.location.inject.utils.AntiDetectionServiceManager;
+import com.kail.location.inject.utils.LAntiDetect;
+import com.kail.location.lib.lhooker.LHooker;
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
@@ -890,7 +890,7 @@ public class RuntimeAntiDetectionHook {
         }
     }
 
-    public static Class<?> loadClass_bak(Object obj, String str) {
+    public static Class<?> loadClass_bak(Object obj, String str) throws ClassNotFoundException {
         try {
             log("loadClass_bak", obj, str);
             StringBuffer stringBuffer = new StringBuffer();

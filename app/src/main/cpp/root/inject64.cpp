@@ -112,8 +112,10 @@ static void waitForRemoteStop() {
 
   uint64_t start = nowMillis();
   int status = 0;
-  pid_t r = waitpid(gTargetPid, &status, WUNTRACED);
-  while (r != -1) {
+  while (true) {
+    if (nowMillis() - start > 200ULL)
+      return;
+    pid_t r = waitpid(gTargetPid, &status, WUNTRACED | WNOHANG);
     if (r == gTargetPid) {
       int stopSig = status & 0x7f;
       if (((status + 1) & 0x7e) != 0) {
@@ -122,12 +124,10 @@ static void waitForRemoteStop() {
       } else if ((status & 0x7f) == 0 || stopSig == 0x7f) {
         return;
       }
-    } else {
-      if (nowMillis() - start > 0x80)
-        return;
+    } else if (r == -1) {
+      return;
     }
-    usleep(1);
-    r = waitpid(gTargetPid, &status, WUNTRACED);
+    usleep(1000);
   }
 }
 
@@ -280,12 +280,52 @@ static uint64_t callRemoteFunction(uint64_t func, int argc, ...) {
   iov.iov_len  = sizeof(regs);
   ptraceWithRetry("call", PTRACE_SETREGSET, NT_PRSTATUS, (uintptr_t)&iov);
   ptraceWithRetry("call", PTRACE_CONT, 0, 0);
+  __android_log_print(ANDROID_LOG_DEBUG, kInjectorLogTag,
+                      "callRemoteFunction: continued tracee at func=0x%llx",
+                      (unsigned long long)func);
 
+  // WATCHDOG: if the remote function hangs (typically because the linker
+  // mutex is held by a sibling thread of the tracee), waitpid will block
+  // forever and the tracee stays in ptrace_stop, which on system_server
+  // freezes the entire device. Cap the total wait at 5 seconds, then
+  // PTRACE_DETACH so the tracee resumes runnable.
   int status = 0;
-  while (waitpid(gTargetPid, &status, WUNTRACED) == gTargetPid) {
-    if ((status & 0xff7f) == 0xb7f)   // stopped by SIGSEGV
+  uint64_t startMs = nowMillis();
+  bool timed_out = false;
+  while (true) {
+    if (nowMillis() - startMs > 5000ULL) {
+      __android_log_print(ANDROID_LOG_ERROR, kInjectorLogTag,
+                          "callRemoteFunction watchdog tripped (5s); "
+                          "remote func 0x%llx never returned. Aborting.",
+                          (unsigned long long)func);
+      timed_out = true;
       break;
-    ptraceWithRetry("waitpid", PTRACE_CONT, 0, 0);
+    }
+    pid_t r = waitpid(gTargetPid, &status, WUNTRACED | WNOHANG);
+    if (r == gTargetPid) {
+      if ((status & 0xff7f) == 0xb7f) // stopped by SIGSEGV
+        break;
+      ptraceWithRetry("waitpid", PTRACE_CONT, 0, 0);
+      continue;
+    }
+    if (r == -1) {
+      // tracee gone (probably crashed); bail to detach path.
+      timed_out = true;
+      break;
+    }
+    usleep(2000);
+  }
+
+  if (timed_out) {
+    // Restore registers we have and PTRACE_DETACH so the tracee resumes,
+    // even if it does so in a weird mid-call state. Better than
+    // permafrozen. Caller will get garbage in regs[0]; treat as 0.
+    iov.iov_base = backup;
+    iov.iov_len  = sizeof(backup);
+    ptraceWithRetry("restore", PTRACE_SETREGSET, NT_PRSTATUS, (uintptr_t)&iov);
+    ptraceWithRetry("detach", PTRACE_DETACH, 0, 0);
+    kill(gTargetPid, SIGCONT);
+    return 0;
   }
 
   iov.iov_base = regs;
@@ -411,7 +451,9 @@ static int injectLibraryIntoProcess(int pid, const char *libraryPath, const char
        (void *)gRemoteDlerror, (void *)javaVm);
 
   uint64_t remotePath   = writeRemoteString(libraryPath);
+  __android_log_print(ANDROID_LOG_INFO, kInjectorLogTag, "writeRemoteString done, remotePath=0x%llx", (unsigned long long)remotePath);
   uint64_t remoteHandle = callRemoteFunction(gRemoteDlopen, 2, remotePath, (uint64_t)RTLD_NOW);
+  __android_log_print(ANDROID_LOG_INFO, kInjectorLogTag, "remote dlopen returned 0x%llx", (unsigned long long)remoteHandle);
   callRemoteFunction(gRemoteFree, 1, remotePath);
 
   int result;
@@ -497,7 +539,7 @@ static int injectMain(int argc, char **argv) {
                       pid, processName, libraryPath);
 
   if (!ok || (pid < 1 && processName == nullptr) || !libraryPath || !packageName ||
-      strcmp("com.lerist.fakelocation", packageName))
+      strcmp("com.kail.location", packageName))
     exit(-1);
 
   if (access(libraryPath, R_OK) == -1) {
@@ -506,7 +548,7 @@ static int injectMain(int argc, char **argv) {
     exit(-1);
   }
 
-  int rc = injectLibraryIntoProcess(pid, libraryPath, "Lerist.");
+  int rc = injectLibraryIntoProcess(pid, libraryPath, "Kail.");
   if (rc) {
     printf("Inject fail %d.\n", rc);
     __android_log_print(ANDROID_LOG_ERROR, "LINJECT", "Inject fail %d.\n", rc);

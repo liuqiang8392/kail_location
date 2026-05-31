@@ -1,4 +1,4 @@
-package com.lerist.inject.utils;
+package com.kail.location.inject.utils;
 
 public class LStepSensor {
     private static native int doHook(byte[] dexBytes, String targetProcessName);
@@ -12,7 +12,7 @@ public class LStepSensor {
     public static boolean loadAndHook(byte[] dexBytes, String targetProcessName) {
         if (dexBytes != null && targetProcessName != null) {
             try {
-                System.load("/data/fakeloc/libStepSensor.so");
+                System.load("/data/kail-loc/libStepSensor.so");
             } catch (Throwable th) {
                 th.printStackTrace();
             }

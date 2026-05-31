@@ -8,17 +8,17 @@
 //   doRun(JavaVM**, arg) -> AttachCurrentThread -> init(env)
 //   init(env):
 //     - verify release signature (allowing -2 "no context yet" in zygote)
-//     - build a DexClassLoader over /data/fakeloc/libfakeloc.so with an opt
-//       directory of /data/fakeloc/zygote_dex and the system class loader as
+//     - build a DexClassLoader over /data/kail-loc/libfakeloc.so with an opt
+//       directory of /data/kail-loc/zygote_dex and the system class loader as
 //       parent
-//     - load com.lerist.inject.fakelocation.InjectDex
+//     - load com.kail.location.inject.fakelocation.InjectDex
 //     - call InjectDex.initZygote(systemClassLoader) reflectively
 
 #include "fakeloc_common.h"
 
 using namespace fakeloc;
 
-static const char *kOptDir = "/data/fakeloc/zygote_dex";
+static const char *kOptDir = "/data/kail-loc/zygote_dex";
 static bool gInitLoaded = false;     // byte_5960 / byte_6E28
 
 // ---------------------------------------------------------------------------
@@ -50,10 +50,10 @@ static void init(JNIEnv *env) {
 
   jobject loader = env->NewObject(dclClass, dclCtor, dexPath, optDir, nullptr, systemLoader);
 
-  jstring injectClassName = env->NewStringUTF("com.lerist.inject.fakelocation.InjectDex");
+  jstring injectClassName = env->NewStringUTF("com.kail.location.inject.fakelocation.InjectDex");
   jclass injectClass = (jclass)env->CallObjectMethod(loader, dclLoad, injectClassName);
 
-  jmethodID initZygote = env->GetMethodID(
+  jmethodID initZygote = env->GetStaticMethodID(
       injectClass, "initZygote", "(Ljava/lang/Object;)[Ljava/lang/Object;");
   env->CallStaticObjectMethod(injectClass, initZygote, systemLoader);
 

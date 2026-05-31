@@ -1,7 +1,7 @@
-package com.lerist.inject.fakelocation.service;
+package com.kail.location.inject.fakelocation.service;
 
-import com.lerist.lib.lhooker.LHooker;
-import com.lerist.inject.fakelocation.aidl.INativeCatchManager;
+import com.kail.location.lib.lhooker.LHooker;
+import com.kail.location.inject.fakelocation.aidl.INativeCatchManager;
 
 public class NativeCatchManagerService extends INativeCatchManager.Stub {
 

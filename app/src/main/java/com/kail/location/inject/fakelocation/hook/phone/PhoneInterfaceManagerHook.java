@@ -1,4 +1,4 @@
-package com.lerist.inject.fakelocation.hook.phone;
+package com.kail.location.inject.fakelocation.hook.phone;
 
 import android.location.Location;
 import android.os.Binder;
@@ -9,20 +9,20 @@ import android.telephony.CellIdentity;
 import android.telephony.CellInfo;
 import android.telephony.NeighboringCellInfo;
 import android.telephony.SubscriptionInfo;
-import com.lerist.inject.fakelocation.InjectDex;
-import com.lerist.inject.utils.ScopedListFilter;
-import com.lerist.inject.utils.CallingProcessUtils;
-import com.lerist.inject.utils.CellInfoFactory;
-import com.lerist.inject.utils.ReflectionUtils;
-import com.lerist.inject.utils.MockLocationServiceManager;
-import com.lerist.inject.utils.PackageSignatureVerifier;
-import com.lerist.lib.lhooker.LHooker;
+import com.kail.location.inject.fakelocation.InjectDex;
+import com.kail.location.inject.utils.ScopedListFilter;
+import com.kail.location.inject.utils.CallingProcessUtils;
+import com.kail.location.inject.utils.CellInfoFactory;
+import com.kail.location.inject.utils.ReflectionUtils;
+import com.kail.location.inject.utils.MockLocationServiceManager;
+import com.kail.location.inject.utils.PackageSignatureVerifier;
+import com.kail.location.lib.lhooker.LHooker;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
-import com.lerist.inject.fakelocation.model.CellTowerInfo;
+import com.kail.location.inject.fakelocation.model.CellTowerInfo;
 
 /* JADX INFO: renamed from: ֏.֏.ހ.֏.ؠ.֏, reason: contains not printable characters */
 /* JADX INFO: loaded from: /home/kail/code/tool/jadx-1.5.5/bin/classes.dex */
@@ -4512,7 +4512,7 @@ public class PhoneInterfaceManagerHook {
     public static void hook(ClassLoader classLoader) {
         phoneClassLoader = classLoader;
         try {
-            PackageSignatureVerifier.verifyPackageSignature(InjectDex.getApplicationContext(), "com.lerist.fakelocation", "com.android.phone.PhoneInterfaceManager");
+            PackageSignatureVerifier.verifyPackageSignature(InjectDex.getApplicationContext(), "com.kail.location", "com.android.phone.PhoneInterfaceManager");
             LHooker.hookMethodWithBackup(forName(classLoader, "com.android.phone.PhoneInterfaceManager"), "getAllCellInfo", List.class, null, PhoneInterfaceManagerHook.class, "getAllCellInfo_M", "getAllCellInfo_M_bak");
             LHooker.hookMethodWithBackup(forName(classLoader, "com.android.phone.PhoneInterfaceManager"), "getCellLocation", Bundle.class, null, PhoneInterfaceManagerHook.class, "getCellLocation_M", "getCellLocation_M_bak");
             LHooker.hookMethodWithBackup(forName(classLoader, "com.android.phone.PhoneInterfaceManager"), "getAllCellInfo", List.class, new Class[]{String.class}, PhoneInterfaceManagerHook.class, "getAllCellInfo", "getAllCellInfo_bak");

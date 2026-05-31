@@ -1,8 +1,8 @@
-package com.lerist.inject.utils;
+package com.kail.location.inject.utils;
 
 import android.app.ActivityManager;
 import android.os.Binder;
-import com.lerist.inject.fakelocation.InjectDex;
+import com.kail.location.inject.fakelocation.InjectDex;
 import java.util.List;
 
 public class CallingProcessUtils {

@@ -1,4 +1,4 @@
-package com.lerist.inject.fakelocation.model;
+package com.kail.location.inject.fakelocation.model;
 
 import android.os.Parcel;
 import android.os.Parcelable;

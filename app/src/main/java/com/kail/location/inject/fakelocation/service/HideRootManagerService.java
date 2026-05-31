@@ -1,8 +1,8 @@
-package com.lerist.inject.fakelocation.service;
+package com.kail.location.inject.fakelocation.service;
 
-import com.lerist.inject.utils.LicenseStateManager;
+import com.kail.location.inject.utils.LicenseStateManager;
 import java.util.List;
-import com.lerist.inject.fakelocation.aidl.IHideRootManager;
+import com.kail.location.inject.fakelocation.aidl.IHideRootManager;
 
 public class HideRootManagerService extends IHideRootManager.Stub {
 

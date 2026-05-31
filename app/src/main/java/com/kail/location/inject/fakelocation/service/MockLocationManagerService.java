@@ -1,21 +1,21 @@
-package com.lerist.inject.fakelocation.service;
+package com.kail.location.inject.fakelocation.service;
 
 import android.content.Context;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.telephony.SubscriptionInfo;
-import com.lerist.inject.fakelocation.InjectDex;
-import com.lerist.inject.utils.LicenseStateManager;
-import com.lerist.inject.utils.MockLocationHookManager;
-import com.lerist.inject.utils.MockStepSensorManager;
+import com.kail.location.inject.fakelocation.InjectDex;
+import com.kail.location.inject.utils.LicenseStateManager;
+import com.kail.location.inject.utils.MockLocationHookManager;
+import com.kail.location.inject.utils.MockStepSensorManager;
 import java.util.Arrays;
 import java.util.List;
-import com.lerist.inject.fakelocation.aidl.IMockLocationManager;
-import com.lerist.inject.fakelocation.listener.IOnMockLocationListener;
-import com.lerist.inject.fakelocation.model.CellTowerInfo;
-import com.lerist.inject.fakelocation.hook.system.TelephonyRegistryHook;
-import com.lerist.inject.fakelocation.hook.system.WifiServiceHook;
+import com.kail.location.inject.fakelocation.aidl.IMockLocationManager;
+import com.kail.location.inject.fakelocation.listener.IOnMockLocationListener;
+import com.kail.location.inject.fakelocation.model.CellTowerInfo;
+import com.kail.location.inject.fakelocation.hook.system.TelephonyRegistryHook;
+import com.kail.location.inject.fakelocation.hook.system.WifiServiceHook;
 
 public class MockLocationManagerService extends IMockLocationManager.Stub {
 

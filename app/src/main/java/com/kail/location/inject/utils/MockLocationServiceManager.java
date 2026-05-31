@@ -1,4 +1,4 @@
-package com.lerist.inject.utils;
+package com.kail.location.inject.utils;
 
 import android.location.Location;
 import android.os.IBinder;
@@ -6,8 +6,8 @@ import android.os.RemoteException;
 import android.telephony.SubscriptionInfo;
 import java.util.HashMap;
 import java.util.List;
-import com.lerist.inject.fakelocation.aidl.IMockLocationManager;
-import com.lerist.inject.fakelocation.model.CellTowerInfo;
+import com.kail.location.inject.fakelocation.aidl.IMockLocationManager;
+import com.kail.location.inject.fakelocation.model.CellTowerInfo;
 
 public final class MockLocationServiceManager {
     private IMockLocationManager mockLocationService;

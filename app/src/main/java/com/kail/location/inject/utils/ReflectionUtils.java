@@ -1,4 +1,4 @@
-package com.lerist.inject.utils;
+package com.kail.location.inject.utils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;

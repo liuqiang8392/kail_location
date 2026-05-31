@@ -177,108 +177,21 @@ static void doHook() {
 }
 
 // ---------------------------------------------------------------------------
-// de  (decryptLicensePayload): DES-decrypt a Base64 license blob keyed by
-//   ("Lerist." + key) and verify the trailing token matches `key`.  Returns the
-//   decrypted String[] on success, else null.  Reconstructed via JNI.
-// ---------------------------------------------------------------------------
-static jobjectArray decryptLicensePayload(JNIEnv *env, jbyteArray license, jstring key) {
-  jclass base64 = env->FindClass("android/util/Base64");
-  jmethodID decode = env->GetStaticMethodID(base64, "decode", "([BI)[B");
-  jbyteArray cipherBytes = (jbyteArray)env->CallStaticObjectMethod(base64, decode, license, 0);
-  if (env->ExceptionCheck()) { env->ExceptionClear(); return nullptr; }
-
-  jclass secureRandomClass = env->FindClass("java/security/SecureRandom");
-  jmethodID srCtor = env->GetMethodID(secureRandomClass, "<init>", "()V");
-  jobject secureRandom = env->NewObject(secureRandomClass, srCtor);
-
-  jclass desKeySpecClass = env->FindClass("javax/crypto/spec/DESKeySpec");
-  jmethodID desKeySpecCtor = env->GetMethodID(desKeySpecClass, "<init>", "([B)V");
-
-  // keyBytes = ("Lerist." + key).getBytes()
-  jclass strClass = env->FindClass("java/lang/String");
-  jmethodID concat = env->GetMethodID(strClass, "concat", "(Ljava/lang/String;)Ljava/lang/String;");
-  jstring lerist = env->NewStringUTF("Lerist.");
-  jstring fullKey = (jstring)env->CallObjectMethod(lerist, concat, key);
-  env->DeleteLocalRef(lerist);
-  jmethodID getBytes = env->GetMethodID(strClass, "getBytes", "()[B");
-  jbyteArray keyBytes = (jbyteArray)env->CallObjectMethod(fullKey, getBytes);
-
-  jobject desKeySpec = env->NewObject(desKeySpecClass, desKeySpecCtor, keyBytes);
-  if (env->ExceptionCheck()) { env->ExceptionClear(); return nullptr; }
-
-  jclass skfClass = env->FindClass("javax/crypto/SecretKeyFactory");
-  jmethodID skfGet = env->GetStaticMethodID(
-      skfClass, "getInstance", "(Ljava/lang/String;)Ljavax/crypto/SecretKeyFactory;");
-  jstring des = env->NewStringUTF("DES");
-  jobject skf = env->CallStaticObjectMethod(skfClass, skfGet, des);
-  jmethodID generateSecret = env->GetMethodID(
-      skfClass, "generateSecret", "(Ljava/security/spec/KeySpec;)Ljavax/crypto/SecretKey;");
-  jobject secretKey = env->CallObjectMethod(skf, generateSecret, desKeySpec);
-
-  jclass cipherClass = env->FindClass("javax/crypto/Cipher");
-  jmethodID cipherGet = env->GetStaticMethodID(
-      cipherClass, "getInstance", "(Ljava/lang/String;)Ljavax/crypto/Cipher;");
-  jobject cipher = env->CallStaticObjectMethod(cipherClass, cipherGet, des);
-  jmethodID cipherInit = env->GetMethodID(
-      cipherClass, "init", "(ILjava/security/Key;Ljava/security/SecureRandom;)V");
-  env->CallVoidMethod(cipher, cipherInit, 2 /*DECRYPT_MODE*/, secretKey, secureRandom);
-  jmethodID doFinal = env->GetMethodID(cipherClass, "doFinal", "([B)[B");
-  jbyteArray plain = (jbyteArray)env->CallObjectMethod(cipher, doFinal, cipherBytes);
-  if (env->ExceptionCheck()) { env->ExceptionClear(); return nullptr; }
-
-  // plaintext = new String(plain); parts = plaintext.split("#")
-  jmethodID strCtor = env->GetMethodID(strClass, "<init>", "([B)V");
-  jstring plaintext = (jstring)env->NewObject(strClass, strCtor, plain);
-  jmethodID split = env->GetMethodID(strClass, "split", "(Ljava/lang/String;)[Ljava/lang/String;");
-  jstring sep = env->NewStringUTF("#");
-  jobjectArray parts = (jobjectArray)env->CallObjectMethod(plaintext, split, sep);
-
-  jsize n = env->GetArrayLength(parts);
-  jstring last = (jstring)env->GetObjectArrayElement(parts, n - 1);
-  const char *lastChars = env->GetStringUTFChars(last, nullptr);
-  const char *keyChars  = env->GetStringUTFChars(key, nullptr);
-  int match = strcmp(lastChars, keyChars);
-  env->ReleaseStringUTFChars(last, lastChars);
-  env->ReleaseStringUTFChars(key, keyChars);
-
-  return match == 0 ? parts : nullptr;
-}
-
-// ---------------------------------------------------------------------------
 // JNI exports
 // ---------------------------------------------------------------------------
 extern "C" {
 
 JNIEXPORT jint JNICALL
-Java_com_lerist_inject_utils_LStepSensor_doHook(JNIEnv *env, jobject, jbyteArray license, jstring key) {
+Java_com_kail_location_inject_utils_LStepSensor_doHook(JNIEnv *env, jobject, jbyteArray license, jstring key) {
+  // Original framework gated this on a DES-encoded license blob keyed by
+  // ("Lerist." + key) plus a remote license server. The kail rebrand replaces
+  // that with a host-package signature check; same authorization intent,
+  // without the third-party server dependency.
+  (void)license;
+  (void)key;
   gAuthorized = 0;
-  if (!license || !key)
-    return -1;
   if (fakeloc::verifyReleaseSignature(env) != 0)
     return -2;
-
-  jobjectArray payload = decryptLicensePayload(env, license, key);
-  if (!payload)
-    return -3;
-
-  // payload[0] = pro indate, payload[1] = key indate (epoch seconds).  Both
-  // must be in the future relative to the current clock for authorization.
-  clock_t now1 = clock();
-  jstring proStr = (jstring)env->GetObjectArrayElement(payload, 1);
-  const char *proChars = env->GetStringUTFChars(proStr, nullptr);
-  long proIndate = atol(proChars);
-  env->ReleaseStringUTFChars(proStr, proChars);
-  if (now1 > proIndate)
-    return -4;
-
-  clock_t now2 = clock();
-  jstring keyStr = (jstring)env->GetObjectArrayElement(payload, 0);
-  const char *keyChars = env->GetStringUTFChars(keyStr, nullptr);
-  long keyIndate = atol(keyChars);
-  env->ReleaseStringUTFChars(keyStr, keyChars);
-  if (now2 > keyIndate)
-    return -5;
-
   gAuthorized = 1;
   if (!gHooked)
     doHook();
@@ -286,17 +199,17 @@ Java_com_lerist_inject_utils_LStepSensor_doHook(JNIEnv *env, jobject, jbyteArray
 }
 
 JNIEXPORT void JNICALL
-Java_com_lerist_inject_utils_LStepSensor_setMocking(JNIEnv *, jobject, jboolean enabled) {
+Java_com_kail_location_inject_utils_LStepSensor_setMocking(JNIEnv *, jobject, jboolean enabled) {
   gMocking = (gAuthorized != 0 && enabled == JNI_TRUE) ? 1 : 0;
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_lerist_inject_utils_LStepSensor_isMocking(JNIEnv *, jobject) {
+Java_com_kail_location_inject_utils_LStepSensor_isMocking(JNIEnv *, jobject) {
   return (gHooked != 0 && gMocking != 0) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
-Java_com_lerist_inject_utils_LStepSensor_setSensorValues(
+Java_com_kail_location_inject_utils_LStepSensor_setSensorValues(
     JNIEnv *env, jobject, jint type, jint handle, jfloatArray values) {
   jfloat *vals = env->GetFloatArrayElements(values, nullptr);
   switch (type) {

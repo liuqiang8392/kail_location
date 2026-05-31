@@ -1,4 +1,4 @@
-package com.lerist.inject.fakelocation.hook.system;
+package com.kail.location.inject.fakelocation.hook.system;
 
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
@@ -7,20 +7,19 @@ import android.os.Build;
 import android.os.Parcel;
 import android.os.WorkSource;
 import android.util.ArrayMap;
-import com.android.server.LocalServices;
-import com.lerist.inject.fakelocation.InjectDex;
-import com.lerist.inject.utils.CallingProcessUtils;
-import com.lerist.inject.utils.MockLocationHookManager;
-import com.lerist.inject.utils.MockWifiConfigManager;
-import com.lerist.inject.utils.PackageSignatureVerifier;
-import com.lerist.inject.utils.ReflectionUtils;
-import com.lerist.lib.lhooker.LHooker;
+import com.kail.location.inject.fakelocation.InjectDex;
+import com.kail.location.inject.utils.CallingProcessUtils;
+import com.kail.location.inject.utils.MockLocationHookManager;
+import com.kail.location.inject.utils.MockWifiConfigManager;
+import com.kail.location.inject.utils.PackageSignatureVerifier;
+import com.kail.location.inject.utils.ReflectionUtils;
+import com.kail.location.lib.lhooker.LHooker;
 import dalvik.system.PathClassLoader;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import com.lerist.inject.fakelocation.model.MockWifiNetwork;
+import com.kail.location.inject.fakelocation.model.MockWifiNetwork;
 
 public class WifiServiceHook {
 
@@ -1125,7 +1124,17 @@ public class WifiServiceHook {
             str2 = "sLoadedPaths";
         } else {
             clsM104 = ReflectionUtils.loadClass(classLoader, "com.android.server.SystemServiceManager");
-            service = LocalServices.getService(clsM104);
+            // LocalServices is a system_server-internal class not present in
+            // the app classpath. Resolve it reflectively so this code compiles
+            // in the controller app and still works when loaded into
+            // system_server via the inject dex.
+            try {
+                Class<?> localServicesCls = ReflectionUtils.loadClass(classLoader, "com.android.server.LocalServices");
+                java.lang.reflect.Method getService = localServicesCls.getMethod("getService", Class.class);
+                service = getService.invoke(null, clsM104);
+            } catch (Throwable t) {
+                service = null;
+            }
             str2 = "mLoadedPaths";
         }
         ArrayMap arrayMap = (ArrayMap) ReflectionUtils.getFieldValue(service, clsM104, str2);
@@ -1133,7 +1142,8 @@ public class WifiServiceHook {
         if (pathClassLoader != null) {
             return pathClassLoader;
         }
-        for (String str3 : arrayMap.keySet()) {
+        for (Object keyObj : arrayMap.keySet()) {
+            String str3 = (String) keyObj;
             log("getSystemServiceManagerClassLoader.key: " + str3);
             if (str3.contains(str)) {
                 return (PathClassLoader) arrayMap.get(str3);
@@ -1169,7 +1179,7 @@ public class WifiServiceHook {
                 Class clsForName = forName(classLoader, "android.net.wifi.IWifiManager$Stub");
                 iWifiManagerStubClass = clsForName;
                 getTransactionCode(clsForName);
-                PackageSignatureVerifier.verifyPackageSignature(InjectDex.getApplicationContext(), "com.lerist.fakelocation", "com.android.server.wifi.WifiServiceImpl");
+                PackageSignatureVerifier.verifyPackageSignature(InjectDex.getApplicationContext(), "com.kail.location", "com.android.server.wifi.WifiServiceImpl");
                 int i = Build.VERSION.SDK_INT;
                 if (i >= 29) {
                     WifiServiceCompat.init(classLoader);
@@ -1291,7 +1301,7 @@ public class WifiServiceHook {
             Method dump skipped, instruction units count: 501
             To view this dump change 'Code comments level' option to 'DEBUG'
         */
-        throw new UnsupportedOperationException("Method not decompiled: com.lerist.inject.fakelocation.hook.system.WifiServiceHook.onTransact(java.lang.Object, int, android.os.Parcel, android.os.Parcel, int):boolean");
+        throw new UnsupportedOperationException("Method not decompiled: com.kail.location.inject.fakelocation.hook.system.WifiServiceHook.onTransact(java.lang.Object, int, android.os.Parcel, android.os.Parcel, int):boolean");
     }
 
     public static boolean onTransact_bak(Object obj, int i, Parcel parcel, Parcel parcel2, int i2) {

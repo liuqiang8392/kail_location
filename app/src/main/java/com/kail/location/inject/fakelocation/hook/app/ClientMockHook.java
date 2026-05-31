@@ -1,4 +1,4 @@
-package com.lerist.inject.fakelocation.hook.app;
+package com.kail.location.inject.fakelocation.hook.app;
 
 import android.location.Location;
 import android.net.wifi.WifiInfo;
@@ -13,16 +13,16 @@ import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.cdma.CdmaCellLocation;
-import com.lerist.inject.utils.ScopedListFilter;
-import com.lerist.inject.utils.CallingProcessUtils;
-import com.lerist.inject.utils.CellInfoFactory;
-import com.lerist.inject.utils.ReflectionUtils;
-import com.lerist.inject.utils.MockLocationServiceManager;
-import com.lerist.lib.lhooker.LHooker;
+import com.kail.location.inject.utils.ScopedListFilter;
+import com.kail.location.inject.utils.CallingProcessUtils;
+import com.kail.location.inject.utils.CellInfoFactory;
+import com.kail.location.inject.utils.ReflectionUtils;
+import com.kail.location.inject.utils.MockLocationServiceManager;
+import com.kail.location.lib.lhooker.LHooker;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
-import com.lerist.inject.fakelocation.model.CellTowerInfo;
+import com.kail.location.inject.fakelocation.model.CellTowerInfo;
 
 /* JADX INFO: renamed from: ֏.֏.ހ.֏.ށ.ށ, reason: contains not printable characters */
 /* JADX INFO: loaded from: /home/kail/code/tool/jadx-1.5.5/bin/classes.dex */

@@ -1,4 +1,4 @@
-package com.lerist.inject.utils;
+package com.kail.location.inject.utils;
 
 import android.os.Build;
 
@@ -32,16 +32,16 @@ public class LAntiDetect {
         try {
             if (is64BitRuntime()) {
                 try {
-                    System.load("/data/fakeloc/libantidetect64.so");
+                    System.load("/data/kail-loc/libantidetect64.so");
                 } catch (Exception unused) {
-                    fallbackPath = "_/data/fakeloc/libantidetect64.so";
+                    fallbackPath = "_/data/kail-loc/libantidetect64.so";
                     System.load(fallbackPath);
                 }
             } else {
                 try {
-                    System.load("/data/fakeloc/libantidetect.so");
+                    System.load("/data/kail-loc/libantidetect.so");
                 } catch (Exception unused2) {
-                    fallbackPath = "_/data/fakeloc/libantidetect.so";
+                    fallbackPath = "_/data/kail-loc/libantidetect.so";
                     System.load(fallbackPath);
                 }
             }

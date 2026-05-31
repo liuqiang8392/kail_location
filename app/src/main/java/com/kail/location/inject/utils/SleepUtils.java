@@ -1,4 +1,4 @@
-package com.lerist.inject.utils;
+package com.kail.location.inject.utils;
 
 public class SleepUtils {
     public static void sleepQuietly(long millis) {

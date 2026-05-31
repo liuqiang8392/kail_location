@@ -1,18 +1,18 @@
-package com.lerist.inject.fakelocation.hook.app;
+package com.kail.location.inject.fakelocation.hook.app;
 
 import android.app.Application;
 import android.content.pm.ApplicationInfo;
-import com.lerist.inject.utils.ScopedListFilter;
-import com.lerist.inject.utils.ReflectionUtils;
-import com.lerist.inject.utils.HideRootServiceManager;
-import com.lerist.inject.utils.AntiDetectionServiceManager;
-import com.lerist.inject.utils.MockLocationServiceManager;
-import com.lerist.inject.utils.LAntiDetect;
-import com.lerist.lib.lhooker.LHooker;
+import com.kail.location.inject.utils.ScopedListFilter;
+import com.kail.location.inject.utils.ReflectionUtils;
+import com.kail.location.inject.utils.HideRootServiceManager;
+import com.kail.location.inject.utils.AntiDetectionServiceManager;
+import com.kail.location.inject.utils.MockLocationServiceManager;
+import com.kail.location.inject.utils.LAntiDetect;
+import com.kail.location.lib.lhooker.LHooker;
 import java.util.ArrayList;
 import java.util.List;
-import com.lerist.inject.fakelocation.hook.HookClassLoaderUtils;
-import com.lerist.inject.fakelocation.hook.phone.PhoneInterfaceManagerHook;
+import com.kail.location.inject.fakelocation.hook.HookClassLoaderUtils;
+import com.kail.location.inject.fakelocation.hook.phone.PhoneInterfaceManagerHook;
 
 /* JADX INFO: renamed from: ֏.֏.ހ.֏.ށ.֏, reason: contains not printable characters */
 /* JADX INFO: loaded from: /home/kail/code/tool/jadx-1.5.5/bin/classes.dex */

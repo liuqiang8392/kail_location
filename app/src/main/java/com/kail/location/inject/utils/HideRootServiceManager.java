@@ -1,8 +1,8 @@
-package com.lerist.inject.utils;
+package com.kail.location.inject.utils;
 
 import android.os.RemoteException;
 import java.util.List;
-import com.lerist.inject.fakelocation.aidl.IHideRootManager;
+import com.kail.location.inject.fakelocation.aidl.IHideRootManager;
 
 public class HideRootServiceManager {
     private IHideRootManager hideRootService;

@@ -1,8 +1,8 @@
-package com.lerist.inject.utils;
+package com.kail.location.inject.utils;
 
-import com.lerist.inject.fakelocation.InjectDex;
+import com.kail.location.inject.fakelocation.InjectDex;
 import java.util.List;
-import com.lerist.inject.fakelocation.hook.system.PackageManagerServiceHook;
+import com.kail.location.inject.fakelocation.hook.system.PackageManagerServiceHook;
 
 public class PackageAntiDetectionConfig {
     private static boolean packageManagerHookEnabled;

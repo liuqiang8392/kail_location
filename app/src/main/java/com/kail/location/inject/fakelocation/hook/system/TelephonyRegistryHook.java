@@ -1,15 +1,15 @@
-package com.lerist.inject.fakelocation.hook.system;
+package com.kail.location.inject.fakelocation.hook.system;
 
 import android.location.Location;
 import android.os.Binder;
 import android.os.Bundle;
 import android.telephony.CellInfo;
-import com.lerist.inject.utils.ScopedListFilter;
-import com.lerist.inject.utils.CallingProcessUtils;
-import com.lerist.inject.utils.CellInfoFactory;
-import com.lerist.inject.utils.ReflectionUtils;
-import com.lerist.inject.utils.MockLocationHookManager;
-import com.lerist.lib.lhooker.LHooker;
+import com.kail.location.inject.utils.ScopedListFilter;
+import com.kail.location.inject.utils.CallingProcessUtils;
+import com.kail.location.inject.utils.CellInfoFactory;
+import com.kail.location.inject.utils.ReflectionUtils;
+import com.kail.location.inject.utils.MockLocationHookManager;
+import com.kail.location.lib.lhooker.LHooker;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
@@ -21,7 +21,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import com.lerist.inject.fakelocation.model.CellTowerInfo;
+import com.kail.location.inject.fakelocation.model.CellTowerInfo;
 
 public class TelephonyRegistryHook {
 
@@ -435,6 +435,7 @@ public class TelephonyRegistryHook {
                                 CellTowerInfo c0058 = list.get(new SecureRandom().nextInt(Math.min(3, list.size())));
                                 strArr = strArr2;
                                 i = length;
+                                iM260 = Integer.MAX_VALUE;
                                 try {
                                     bundle.putInt("cid", (int) c0058.getCellId());
                                     bundle.putInt("lac", c0058.getLac());
@@ -442,14 +443,7 @@ public class TelephonyRegistryHook {
                                     bundle.putInt("baseStationId", (int) c0058.getCellId());
                                     bundle.putInt("systemId", c0058.getMnc());
                                     iM260 = c0058.getLac();
-                                } catch (InvocationTargetException e) {
-                                    e = e;
-                                    e.printStackTrace();
-                                    phoneStateListeners.remove(str);
-                                    i2++;
-                                    strArr2 = strArr;
                                 } catch (Throwable th) {
-                                    th = th;
                                     th.printStackTrace();
                                 }
                             }
@@ -465,11 +459,9 @@ public class TelephonyRegistryHook {
                             bundle.putInt("size", 0);
                             ReflectionUtils.invokeMethod(obj, iPhoneStateListenerClass, "onCellLocationChanged", new Class[]{Bundle.class}, new Object[]{bundle});
                         } catch (InvocationTargetException e2) {
-                            e = e2;
                             strArr = strArr2;
                             i = length;
                         } catch (Throwable th2) {
-                            th = th2;
                             strArr = strArr2;
                             i = length;
                         }
@@ -482,14 +474,14 @@ public class TelephonyRegistryHook {
                             cls = iPhoneStateListenerClass;
                             clsArr = new Class[1];
                         } catch (Throwable th3) {
-                            th = th3;
+                            // swallowed
+                            return;
                         }
                         try {
                             clsArr[0] = List.class;
                             ReflectionUtils.invokeMethod(obj, cls, "onCellInfoChanged", clsArr, new Object[]{objM101});
                         } catch (Throwable th4) {
-                            th = th4;
-                            th.printStackTrace();
+                            th4.printStackTrace();
                         }
                     }
                 }
@@ -1766,7 +1758,7 @@ public class TelephonyRegistryHook {
             Method dump skipped, instruction units count: 423
             To view this dump change 'Code comments level' option to 'DEBUG'
         */
-        throw new UnsupportedOperationException("Method not decompiled: com.lerist.inject.fakelocation.hook.system.TelephonyRegistryHook.notifyCellLocationForSubscriber(java.lang.Object, int, android.os.Bundle):void");
+        throw new UnsupportedOperationException("Method not decompiled: com.kail.location.inject.fakelocation.hook.system.TelephonyRegistryHook.notifyCellLocationForSubscriber(java.lang.Object, int, android.os.Bundle):void");
     }
 
     public static void notifyCellLocationForSubscriber_bak(Object obj, int i, Bundle bundle) {

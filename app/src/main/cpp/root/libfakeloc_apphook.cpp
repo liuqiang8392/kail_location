@@ -10,8 +10,8 @@
 //     -> AttachCurrentThread, then init(env)
 //   init(env):
 //     - verify payload MD5 and release signature
-//     - build a DexClassLoader over /data/fakeloc/libfakeloc.so
-//     - load com.lerist.inject.fakelocation.InjectDex
+//     - build a DexClassLoader over /data/kail-loc/libfakeloc.so
+//     - load com.kail.location.inject.fakelocation.InjectDex
 //     - call InjectDex.hookApplication(context) reflectively
 
 #include "fakeloc_common.h"
@@ -60,10 +60,10 @@ static void init(JNIEnv *env) {
 
   jobject loader = env->NewObject(dclClass, dclCtor, dexPath, optDir, nullptr, parentLoader);
 
-  jstring injectClassName = env->NewStringUTF("com.lerist.inject.fakelocation.InjectDex");
+  jstring injectClassName = env->NewStringUTF("com.kail.location.inject.fakelocation.InjectDex");
   jclass injectClass = (jclass)env->CallObjectMethod(loader, dclLoad, injectClassName);
 
-  jmethodID hookApp = env->GetMethodID(
+  jmethodID hookApp = env->GetStaticMethodID(
       injectClass, "hookApplication", "(Ljava/lang/Object;)[Ljava/lang/Object;");
   // hookApplication is reflectively invoked on a freshly default-constructed
   // InjectDex instance; the original called it as a static-style helper.

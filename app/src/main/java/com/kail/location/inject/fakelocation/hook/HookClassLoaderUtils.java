@@ -1,6 +1,6 @@
-package com.lerist.inject.fakelocation.hook;
+package com.kail.location.inject.fakelocation.hook;
 
-import com.lerist.inject.utils.ReflectionUtils;
+import com.kail.location.inject.utils.ReflectionUtils;
 
 public class HookClassLoaderUtils {
     public static Class loadClass(ClassLoader classLoader, String className) {

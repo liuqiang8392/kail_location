@@ -1,4 +1,4 @@
-package com.lerist.inject.fakelocation.hook.system;
+package com.kail.location.inject.fakelocation.hook.system;
 
 import android.content.ComponentName;
 import android.content.Intent;
@@ -17,12 +17,12 @@ import android.content.pm.ServiceInfo;
 import android.content.pm.VersionedPackage;
 import android.os.Binder;
 import android.os.Build;
-import com.lerist.inject.fakelocation.InjectDex;
-import com.lerist.inject.utils.CallingProcessUtils;
-import com.lerist.inject.utils.ReflectionUtils;
-import com.lerist.inject.utils.PackageAntiDetectionConfig;
-import com.lerist.inject.utils.PackageSignatureVerifier;
-import com.lerist.lib.lhooker.LHooker;
+import com.kail.location.inject.fakelocation.InjectDex;
+import com.kail.location.inject.utils.CallingProcessUtils;
+import com.kail.location.inject.utils.ReflectionUtils;
+import com.kail.location.inject.utils.PackageAntiDetectionConfig;
+import com.kail.location.inject.utils.PackageSignatureVerifier;
+import com.kail.location.lib.lhooker.LHooker;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -2066,8 +2066,7 @@ public class PackageManagerServiceHook {
                 }
             }
         } catch (Throwable th2) {
-            th = th2;
-            th.printStackTrace();
+            th2.printStackTrace();
         }
         if (installedPackages_Q_bak != null) {
             return installedPackages_Q_bak;
@@ -4713,7 +4712,7 @@ public class PackageManagerServiceHook {
                 LHooker.hookMethodWithBackup(forName(classLoader, packageManagerServiceClassName), "queryIntentActivityOptions", List.class, new Class[]{ComponentName.class, Intent[].class, String[].class, Intent.class, String.class, cls, cls}, PackageManagerServiceHook.class, "queryIntentActivityOptions_L", "queryIntentActivityOptions_L_bak");
                 LHooker.hookMethodWithBackup(forName(classLoader, packageManagerServiceClassName), "queryIntentActivities", List.class, new Class[]{Intent.class, String.class, cls, cls}, PackageManagerServiceHook.class, "queryIntentActivities_L", "queryIntentActivities_L_bak");
             }
-            PackageSignatureVerifier.verifyPackageSignature(InjectDex.getApplicationContext(), "com.lerist.fakelocation", packageManagerServiceClassName);
+            PackageSignatureVerifier.verifyPackageSignature(InjectDex.getApplicationContext(), "com.kail.location", packageManagerServiceClassName);
             packageManagerHooked = true;
         } catch (RuntimeException unused) {
             PackageAntiDetectionConfig.setPackageManagerHookEnabled(false);
@@ -5549,7 +5548,7 @@ public class PackageManagerServiceHook {
     }
 
     public static Object queryIntentActivities(Object obj, Intent intent, String str, int i, int i2) {
-        Object objQueryIntentActivities_bak;
+        Object objQueryIntentActivities_bak = null;
         log("queryIntentActivities", obj, intent, str, Integer.valueOf(i), Integer.valueOf(i2));
         try {
             StringBuffer stringBuffer = new StringBuffer();
@@ -5663,10 +5662,7 @@ public class PackageManagerServiceHook {
                 }
             }
         } catch (Throwable th2) {
-            th = th2;
-            obj2 = objQueryIntentActivities_bak;
-            th.printStackTrace();
-            objQueryIntentActivities_bak = obj2;
+            th2.printStackTrace();
         }
         if (objQueryIntentActivities_bak != null) {
             return objQueryIntentActivities_bak;
@@ -5680,7 +5676,7 @@ public class PackageManagerServiceHook {
     }
 
     public static Object queryIntentActivities_2(Object obj, Intent intent, String str, int i, int i2) {
-        Object objQueryIntentActivities_2_bak;
+        Object objQueryIntentActivities_2_bak = null;
         log("queryIntentActivities_2", obj, intent, str, Integer.valueOf(i), Integer.valueOf(i2));
         try {
             StringBuffer stringBuffer = new StringBuffer();
@@ -5743,10 +5739,7 @@ public class PackageManagerServiceHook {
                 }
             }
         } catch (Throwable th2) {
-            th = th2;
-            obj2 = objQueryIntentActivities_2_bak;
-            th.printStackTrace();
-            objQueryIntentActivities_2_bak = obj2;
+            th2.printStackTrace();
         }
         try {
             StringBuffer stringBuffer3 = new StringBuffer();

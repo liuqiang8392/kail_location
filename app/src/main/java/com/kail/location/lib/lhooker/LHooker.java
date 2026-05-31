@@ -1,4 +1,4 @@
-package com.lerist.lib.lhooker;
+package com.kail.location.lib.lhooker;
 
 import android.os.Build;
 import android.util.Log;

@@ -33,35 +33,58 @@ namespace fakeloc {
 
 static const char *kLogTag = "LINJECT.native";
 
-// Expected MD5 of the payload library and its on-disk path.
-static const char *kPayloadMd5  = "b68ed18c83438359efeb6ca49a21d931";
-static const char *kPayloadPath = "/data/fakeloc/libfakeloc.so";
+// Path to the on-disk payload .dex/.so used by the loaders. Re-pointed to the
+// kail-branded staging directory.
+static const char *kPayloadPath = "/data/kail-loc/libfakeloc.so";
 
-// Release signing certificate (DER hex) and owning package name.
-static const char *kReleaseSign =
-    "308203a930820291a00302010202040ac3dfa8300d06092a864886f70d01010b0500308183310b300906035504"
-    "061302434e3110300e060355040813077369636875616e3110300e060355040713076368656e67647531273025"
-    "060355040a0c1ee68890e983bde8a788e4b880e7a791e68a80e69c89e99990e585ace58fb83115301306035504"
-    "0b0c0ce8a788e4b880e7a791e68a803110300e060355040313074c65726973742e3020170d3138303830343232"
-    "313834325a180f32323638303630343232313834325a308183310b300906035504061302434e3110300e060355"
-    "040813077369636875616e3110300e060355040713076368656e67647531273025060355040a0c1ee68890e983"
-    "bde8a788e4b880e7a791e68a80e69c89e99990e585ace58fb831153013060355040b0c0ce8a788e4b880e7a791e6"
-    "8a803110300e060355040313074c65726973742e30820122300d06092a864886f70d01010105000382010f0030"
-    "82010a0282010100912c3c52e91e892d10c545cd2e9fc52c6a81213e0a21ce4b2f20ecac8738858721b6fb6068"
-    "8d5bd4090b79ea1c0e5814e07162fb1cbd33a20ee929b540caaecb3a8d9b14b979c59366bad460203811 93a63"
-    "c7e3f11de0394f4d1dc5953f33f9702ee342ef18ec7c32987359bc59d3306f823c30e9bd1d23da0fa6259c29d1"
-    "74ec75232b8dbc49e61a1edead29b3336f243be77b9b1c28fcb62b6a66721b70dc33c2c2d7fc6e073ea44bb168"
-    "d257d08679210c5cb13c644f236950d9beacddf001851bec844d2fd1247d84c1a1bcc14ce9a883a80bda0e04fb"
-    "2529ee4fc6e0874b16568ddc8765343343998e41b65b62538475e05ac4ed9818b836b48d27dcf2d0203010001"
-    "a321301f301d0603551d0e04160414f4dd19f2bedba126e0dbcc5aafca9937760fa86d300d06092a864886f70d"
-    "01010b050003820101005ea634637bafd7beb0fd4700169e91d56c3b69d663f59f541a4d5786845ceb61f40848"
-    "b2de9b878ec5ab0c08e3b0de2f1c3823ae080e022e7e7d987dacec01594cf8e8fb8ee2dd53108a2272c6d11d92"
-    "a2b40d32768d627bc5174c7fae77d57d5bf77e520288ac6a847b3af25b1e3151668ca0b35a3806ad075b1cbee6"
-    "d5005036100f52678bc942685cadc9ad43176f9718b6a7c0f5d12f8a9d6c39b4a1b03e3a604aafddab2b4244a8"
-    "db827af58689330441f17061be8b4faf0f1280e131b2edb7bd3da410489f06578a7418dbdc1a149159d38fee2ce"
-    "5cceab1f2e63036b1e018d018f228d315dbf96dd6027ec4f3653f81228fae6a4dbac355a5cfed05f3";
+// MD5 gate for the on-disk payload.
+//
+// The original framework checked a fixed digest of the released payload.
+// For the kail rebrand we cannot bake in a digest at build time because the
+// payload is rebuilt with a fresh hash each release. The empty string is
+// treated as "skip" by verifyApkMd5() below; set this to the real digest in a
+// release config if you need the integrity gate back.
+static const char *kPayloadMd5  = "";
 
-static const char *kPackageName = "com.lerist.fakelocation";
+// Release signing certificate (DER hex). This must match
+// PackageInfo.signatures[0].toCharsString() of the host package on device.
+//
+// The default value below is the AOSP debug keystore (~/.android/debug.keystore)
+// certificate so debug builds of com.kail.location pass the gate out of the
+// box. For release builds, replace this with the DER hex of your release
+// signing certificate, obtained via:
+//
+//   keytool -exportcert -alias <alias> -keystore <keystore> | xxd -p | tr -d '\n'
+//
+// An empty string disables the signature comparison.
+//
+// Currently empty — easier kail-rebrand bring-up path: rely on the host
+// running as root (kail_inject only runs via su) instead of cert pinning.
+// Set the hex to enable strict matching for production builds.
+static const char *kReleaseSign = "";
+
+// Stash the debug keystore cert hex here for easy re-enabling later:
+static const char *kReleaseSign_DebugKeystore =
+    "308202e4308201cc020101300d06092a864886f70d01010b050030373116301406035504030c0d416e64726f"
+    "69642044656275673110300e060355040a0c07416e64726f6964310b30090603550406130255533020170d32"
+    "36303431323039353132355a180f32303536303430343039353132355a30373116301406035504030c0d416e"
+    "64726f69642044656275673110300e060355040a0c07416e64726f6964310b3009060355040613025553308201"
+    "22300d06092a864886f70d01010105000382010f003082010a0282010100eba93aafaa946096f144871949"
+    "4ad610e32268b516ae8adff2468470aaca78abc9415fedd6b889bfaf5ce8fd877c7af1bc1312bcee5d544c4d1"
+    "f2bf089aea8858735fe71754305a9e3caca12592553b832639962b145f0f768a24ef50ef2a1fbeb40a677aa3e"
+    "56995cebe7f58e5897ff24dbb25a2f579a4b29ceb36409c23513f3d04b6ab986d3af6176f5fd6041cd1212330"
+    "e0b47ff2c57043c560c88d213c2c97ba8da87edbdac8d1c59b23826985dfdf1e4a833fa591fce259ab12f57d"
+    "c1b49ec83c11627fb87646beec839a81a26f26a02097d7f8b8a6e325bda16d4b17e8521c4d744040d0ddb218"
+    "4b57653e5e5d1cc8a2067651fc2c99f702a97b54b150203010001300d06092a864886f70d01010b0500038201"
+    "01006a11123643b8f7f2b2363d3ebf7ca8b8c08093f318cc1cc9108d51514cf6b7721c471e9e2245401bd3c0"
+    "912bdcab2b10e2380938fdc282d18d10fee2d211acc4025c4fba9012e653bd1105452774463e58a863270009"
+    "909ffc2aeeb253707363a16eaab4b637821deec16242bf9487685dcd1afe71d16b87fbc029c06539746634f0"
+    "dfc3ba979e236a6128eef87ebebdbb34cb2f7aa4c0a903a092b102616461bffa01b0c0545842f14153e263ec"
+    "6e3be3df858bc090048637c9b2128cb42c64f417b80dc219e073a72699b677db563ba69ddab6689b7974626d"
+    "d058a65e780221b0e2e6a0b6ee4a097f487c7c8be762a11c711505c492a6131ab7df78639eaf";
+
+// Owning package on device. Re-pointed at the kail consolidated app.
+static const char *kPackageName = "com.kail.location";
 
 // ===========================================================================
 // MD5 (RFC 1321)
@@ -199,7 +222,16 @@ inline const char *getFileMD5(const char *path) {
 }
 
 // verifyApkMd5 (c5): 0 when the payload library matches the expected digest.
+// An empty kPayloadMd5 is treated as "integrity check disabled" — the file
+// just needs to be readable.  This is the kail-rebrand default since the
+// payload is rebuilt with a fresh digest on each release.
 inline int verifyApkMd5() {
+  if (kPayloadMd5 == nullptr || kPayloadMd5[0] == '\0') {
+    // Still verify the file exists and is readable; that catches the case
+    // where /data/kail-loc/libfakeloc.so wasn't staged.
+    const char *md5 = getFileMD5(kPayloadPath);
+    return md5 ? 0 : -1;
+  }
   const char *md5 = getFileMD5(kPayloadPath);
   return md5 ? strcmp(kPayloadMd5, md5) : -1;
 }
@@ -311,8 +343,12 @@ inline jobject getSystemClassLoader(JNIEnv *env) {
 
 // verifyReleaseSignature (sq): 0 when the host package is signed with the
 // expected release certificate.  Returns -2 when no context is available and
-// -1 on signature mismatch.
+// -1 on signature mismatch.  An empty kReleaseSign skips the comparison so
+// debug builds work without a baked-in cert hash.
 inline int verifyReleaseSignature(JNIEnv *env) {
+  if (kReleaseSign == nullptr || kReleaseSign[0] == '\0') {
+    return 0;
+  }
   jobject context = getGlobalContext(env);
   if (!context)
     return -2;

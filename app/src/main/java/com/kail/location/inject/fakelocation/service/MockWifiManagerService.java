@@ -1,12 +1,12 @@
-package com.lerist.inject.fakelocation.service;
+package com.kail.location.inject.fakelocation.service;
 
-import com.lerist.inject.fakelocation.InjectDex;
-import com.lerist.inject.utils.LicenseStateManager;
-import com.lerist.inject.utils.MockWifiConfigManager;
+import com.kail.location.inject.fakelocation.InjectDex;
+import com.kail.location.inject.utils.LicenseStateManager;
+import com.kail.location.inject.utils.MockWifiConfigManager;
 import java.util.List;
-import com.lerist.inject.fakelocation.aidl.IMockWifiManager;
-import com.lerist.inject.fakelocation.model.MockWifiNetwork;
-import com.lerist.inject.fakelocation.hook.system.WifiServiceHook;
+import com.kail.location.inject.fakelocation.aidl.IMockWifiManager;
+import com.kail.location.inject.fakelocation.model.MockWifiNetwork;
+import com.kail.location.inject.fakelocation.hook.system.WifiServiceHook;
 
 public class MockWifiManagerService extends IMockWifiManager.Stub {
 

@@ -12,14 +12,14 @@
 //   - paths ending in "/su"                                     -> "/su_f"
 //   - opendir("/sbin")          -> "/etc"
 //   - opendir(".../Android/data")-> ".../Documents/data"
-//   - opendir(".../data/fakeloc")-> "/data/_null"
+//   - opendir(".../data/kail-loc")-> "/data/_null"
 //
 // Only the project-specific logic is reconstructed here; the large body of
 // statically-linked C++ runtime / libc++abi demangler / unwinder code present
 // in the decompilation is provided automatically by the toolchain and is not
 // part of the original source.
 //
-// JNI surface (com.lerist.inject.utils.LAntiDetect):
+// JNI surface (com.kail.location.inject.utils.LAntiDetect):
 //   init(), setMocking(z), isMocking(), setAntidetectFileNames(String[]),
 //   doHookLib(..., String libraryPath)
 
@@ -208,7 +208,7 @@ static DIR *hook_opendir(const char *path) {
       p = strrpc(path, "/storage/emulated/0/Android/data", "/sdcard/Documents/data");
     else if (strstr(path, "/storage/sdcard/Android/data"))
       p = strrpc(path, "/storage/sdcard/Android/data", "/sdcard/Documents/data");
-    else if (strstr(path, "/data/fakeloc"))
+    else if (strstr(path, "/data/kail-loc"))
       p = "/data/_null";
     else
       p = relocateByFileNames(path);
@@ -429,7 +429,7 @@ static void doInit() {
 extern "C" {
 
 JNIEXPORT jint JNICALL
-Java_com_lerist_inject_utils_LAntiDetect_init(JNIEnv *, jobject) {
+Java_com_kail_location_inject_utils_LAntiDetect_init(JNIEnv *, jobject) {
   gAuthorized = 1;
   if (!gHooked)
     doInit();
@@ -437,17 +437,17 @@ Java_com_lerist_inject_utils_LAntiDetect_init(JNIEnv *, jobject) {
 }
 
 JNIEXPORT void JNICALL
-Java_com_lerist_inject_utils_LAntiDetect_setMocking(JNIEnv *, jobject, jboolean enabled) {
+Java_com_kail_location_inject_utils_LAntiDetect_setMocking(JNIEnv *, jobject, jboolean enabled) {
   gMocking = (enabled == JNI_TRUE) ? 1 : 0;
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_lerist_inject_utils_LAntiDetect_isMocking(JNIEnv *, jobject) {
+Java_com_kail_location_inject_utils_LAntiDetect_isMocking(JNIEnv *, jobject) {
   return (gHooked != 0 && gMocking != 0) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
-Java_com_lerist_inject_utils_LAntiDetect_setAntidetectFileNames(
+Java_com_kail_location_inject_utils_LAntiDetect_setAntidetectFileNames(
     JNIEnv *env, jobject, jobjectArray fileNames) {
   char **old = gFileNames;
   if (fileNames) {
@@ -468,7 +468,7 @@ Java_com_lerist_inject_utils_LAntiDetect_setAntidetectFileNames(
 }
 
 JNIEXPORT jint JNICALL
-Java_com_lerist_inject_utils_LAntiDetect_doHookLib(
+Java_com_kail_location_inject_utils_LAntiDetect_doHookLib(
     JNIEnv *env, jobject, jobject, jobject, jobject, jstring libraryPath) {
   gAuthorized = 1;
   const char *path = env->GetStringUTFChars(libraryPath, nullptr);
