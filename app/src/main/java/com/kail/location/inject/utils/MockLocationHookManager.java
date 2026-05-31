@@ -3705,6 +3705,7 @@ public class MockLocationHookManager {
 
     /* JADX INFO: Access modifiers changed from: private */
     public static void log(Object... objArr) {
+        InjectLog.log("MockLocationHook", objArr);
     }
 
     /* JADX INFO: Access modifiers changed from: private */

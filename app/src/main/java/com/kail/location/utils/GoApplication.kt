@@ -42,7 +42,10 @@ class GoApplication : Application(), Application.ActivityLifecycleCallbacks {
     private var sandboxInitialized = false
     private var isMainProc = true
 
-    private fun writeCrashToFile(ex: Throwable) {
+    private fun writeCrashToFile(thread: Thread, ex: Throwable) {
+        // 写入统一日志（带线程/堆栈，便于定位）。
+        KailLog.logCrash(this, thread, ex)
+        // 同时保留一份独立崩溃文件，便于快速取证。
         try {
             val logPath = getExternalFilesDir("Logs") ?: return
             val crashFile = java.io.File(logPath, "crash_${System.currentTimeMillis()}.txt")
@@ -113,11 +116,11 @@ class GoApplication : Application(), Application.ActivityLifecycleCallbacks {
 
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         val logEnabled = prefs.getBoolean("setting_log_enabled", false)
-        android.util.Log.d("GoApplication", "Log enabled: $logEnabled")
+        KailLog.i(this, APP_NAME, "App startup (main process), fileLog=$logEnabled")
 
         mDefaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            writeCrashToFile(throwable)
+            writeCrashToFile(thread, throwable)
             throwable.printStackTrace()
             mDefaultHandler?.uncaughtException(thread, throwable)
         }

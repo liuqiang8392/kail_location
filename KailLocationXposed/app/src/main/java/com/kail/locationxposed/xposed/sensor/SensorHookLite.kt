@@ -6,17 +6,23 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import com.kail.locationxposed.xposed.core.FakeLocState
+import com.kail.locationxposed.xposed.utils.KailLog
 import java.lang.reflect.Constructor
 import java.util.concurrent.ConcurrentHashMap
 
 internal object SensorHookLite {
+    private const val TAG = "SensorHookLite"
     private val stepListeners = ConcurrentHashMap.newKeySet<Any>()
     @Volatile private var sensorRef: Sensor? = null
     @Volatile private var stepThread: Thread? = null
     @Volatile private var sensorEventConstructor: Constructor<*>? = null
 
     fun hook(classLoader: ClassLoader) {
-        val cSSM = XposedHelpers.findClassIfExists("android.hardware.SystemSensorManager", classLoader) ?: return
+        val cSSM = XposedHelpers.findClassIfExists("android.hardware.SystemSensorManager", classLoader)
+        if (cSSM == null) {
+            KailLog.w(null, TAG, "hook skipped: SystemSensorManager not found")
+            return
+        }
         XposedBridge.hookAllMethods(cSSM, "registerListener", object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam?) {
                 val args = param?.args ?: return
@@ -26,6 +32,7 @@ internal object SensorHookLite {
                 if (type == Sensor.TYPE_STEP_DETECTOR || type == Sensor.TYPE_STEP_COUNTER) {
                     stepListeners.add(listener)
                     sensorRef = sensor
+                    KailLog.i(null, TAG, "step listener registered: type=$type listener=${listener.javaClass.name}")
                     ensureThread()
                 }
             }
@@ -37,6 +44,7 @@ internal object SensorHookLite {
                 stepListeners.remove(listener)
             }
         })
+        KailLog.i(null, TAG, "hook installed on SystemSensorManager")
     }
 
     private fun ensureThread() {
@@ -72,11 +80,13 @@ internal object SensorHookLite {
                             XposedHelpers.callMethod(l, "onSensorChanged", ev)
                         }
                     }
+                    KailLog.v(null, TAG, "fed step event value=${ev.values[0]} to ${stepListeners.size} listener(s)")
                     val intervalMs = (60000.0 / spm).toLong().coerceAtLeast(1L)
                     Thread.sleep(intervalMs)
                 } catch (_: InterruptedException) {
                     break
-                } catch (_: Throwable) {
+                } catch (t: Throwable) {
+                    KailLog.w(null, TAG, "step feeder iteration error: ${t.message}")
                 }
             }
         }

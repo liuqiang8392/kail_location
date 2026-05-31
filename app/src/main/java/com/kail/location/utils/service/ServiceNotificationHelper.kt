@@ -14,6 +14,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.kail.location.R
+import com.kail.location.utils.KailLog
 import com.kail.location.views.locationpicker.LocationPickerActivity
 
 /**
@@ -28,6 +29,7 @@ class ServiceNotificationHelper(
     private val onHideJoystick: () -> Unit
 ) {
     companion object {
+        private const val TAG = "ServiceNotification"
         const val ACTION_JOYSTICK_SHOW = "ShowJoyStick"
         const val ACTION_JOYSTICK_HIDE = "HideJoyStick"
     }
@@ -78,19 +80,31 @@ class ServiceNotificationHelper(
 
         notification = built
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            service.startForeground(noteId, built, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-        } else {
-            service.startForeground(noteId, built)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                service.startForeground(noteId, built, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            } else {
+                service.startForeground(noteId, built)
+            }
+            KailLog.i(service, TAG, "initAndStartForeground: foreground started (noteId=$noteId)")
+        } catch (e: Exception) {
+            KailLog.e(service, TAG, "initAndStartForeground: startForeground failed", e)
         }
     }
 
     fun startForegroundIfReady() {
-        val n = notification ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            service.startForeground(noteId, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-        } else {
-            service.startForeground(noteId, n)
+        val n = notification ?: run {
+            KailLog.w(service, TAG, "startForegroundIfReady: notification not built yet")
+            return
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                service.startForeground(noteId, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            } else {
+                service.startForeground(noteId, n)
+            }
+        } catch (e: Exception) {
+            KailLog.e(service, TAG, "startForegroundIfReady: startForeground failed", e)
         }
     }
 

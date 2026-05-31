@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.preference.PreferenceManager
 import com.kail.location.models.CellInfo
+import com.kail.location.utils.KailLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +28,7 @@ class CellSimulationViewModel(application: Application) : AndroidViewModel(appli
     private val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(application)
 
     companion object {
+        private const val TAG = "CellSimulationVM"
         const val KEY_CELL_LIST = "cell_sim_list"
         const val KEY_CELL_SELECTED_IDS = "cell_sim_selected_ids" // comma-separated
         const val KEY_CELL_IS_SIMULATING = "cell_sim_is_simulating"
@@ -151,8 +153,9 @@ class CellSimulationViewModel(application: Application) : AndroidViewModel(appli
                 )
             }
             ctx.startService(intent)
+            KailLog.i(ctx, TAG, "stopServiceGoRootCellMode: sent CONTROL_STOP_CELL")
         } catch (e: Exception) {
-            e.printStackTrace()
+            KailLog.e(getApplication(), TAG, "stopServiceGoRootCellMode failed", e)
         }
     }
 
@@ -201,8 +204,9 @@ target_packages="""
                 com.kail.location.utils.ShellUtils.executeCommand("echo '$content' > $confFile")
                 com.kail.location.utils.ShellUtils.executeCommand("chmod 777 $confFile")
             }
+            KailLog.i(getApplication(), TAG, "writeCellConfigToFile: enabled=$effectiveEnabled cells=${activeCellList.size}")
         } catch (e: Exception) {
-            e.printStackTrace()
+            KailLog.e(getApplication(), TAG, "writeCellConfigToFile failed", e)
         }
     }
 
@@ -222,8 +226,9 @@ target_packages="""
                 )
             }
             ctx.startService(intent)
+            KailLog.i(ctx, TAG, "startServiceGoRootCellMode: started with ${activeCellList.size} cells")
         } catch (e: Exception) {
-            e.printStackTrace()
+            KailLog.e(getApplication(), TAG, "startServiceGoRootCellMode failed", e)
         }
     }
 
@@ -387,8 +392,9 @@ target_packages="""
                     info?.let { results.add(it) }
                 }
                 _scannedCells.value = results
+                KailLog.i(getApplication(), TAG, "scanCurrentCellInfo: found ${results.size} cells")
             } catch (e: Exception) {
-                e.printStackTrace()
+                KailLog.e(getApplication(), TAG, "scanCurrentCellInfo failed", e)
                 _scannedCells.value = emptyList()
             } finally {
                 _isScanningCell.value = false
@@ -431,7 +437,7 @@ target_packages="""
             _networkFetchError.value = null
             try {
                 val (lat, lng) = getCurrentWgs84Location()
-                android.util.Log.d("CellSimVM", "Location: lat=$lat, lon=$lng")
+                KailLog.d(getApplication(), TAG, "fetchCellsFromNetwork: location lat=$lat lon=$lng")
                 if (lat == 0.0 && lng == 0.0) {
                     _networkFetchError.value = "无法获取当前位置，请先设置模拟位置或开启GPS"
                     _isFetchingNetwork.value = false
@@ -439,7 +445,7 @@ target_packages="""
                 }
 
                 val apiKey = prefs.getString(SettingsViewModel.KEY_OPENCELLID_API_KEY, "") ?: ""
-                android.util.Log.d("CellSimVM", "API key length=${apiKey.length}, blank=${apiKey.isBlank()}")
+                KailLog.d(getApplication(), TAG, "fetchCellsFromNetwork: apiKey length=${apiKey.length} blank=${apiKey.isBlank()}")
                 if (apiKey.isBlank()) {
                     _networkFetchError.value = "请先在设置中配置 OpenCellID API Key"
                     _isFetchingNetwork.value = false
@@ -452,7 +458,7 @@ target_packages="""
                     lon = lng,
                     radiusKm = 0.5
                 )
-                android.util.Log.d("CellSimVM", "Fetched ${cells.size} cells")
+                KailLog.i(getApplication(), TAG, "fetchCellsFromNetwork: fetched ${cells.size} cells")
 
                 if (cells.isEmpty()) {
                     _networkFetchError.value = "未查询到基站数据，该区域可能无覆盖或API限制"
@@ -460,7 +466,7 @@ target_packages="""
                     _scannedCells.value = cells
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                KailLog.e(getApplication(), TAG, "fetchCellsFromNetwork failed", e)
                 _networkFetchError.value = "网络请求失败: ${e.message}"
             } finally {
                 _isFetchingNetwork.value = false

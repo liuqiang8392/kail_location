@@ -233,6 +233,31 @@
     <string name="setting_clear_log_cache_failed">ログキャッシュの削除に失敗しました</string>
     <string name="setting_map_zoom">フローティングウィンドウの地図ズーム</string>
     <string name="setting_map_zoom_summary">範囲は 10-21、数値が大きいほど詳細になります</string>
+
+    <!-- データのエクスポート / インポート -->
+    <string name="setting_group_data_transfer">データバックアップ</string>
+    <string name="data_transfer_group_general">共通（全モード）</string>
+    <string name="setting_export_data">データをエクスポート</string>
+    <string name="setting_export_data_summary">選択したメニューの設定を .bak バックアップファイルにエクスポートします</string>
+    <string name="setting_import_data">データをインポート</string>
+    <string name="setting_import_data_summary">.bak バックアップファイルからメニュー設定を選択して復元します</string>
+    <string name="data_transfer_export_title">データをエクスポート</string>
+    <string name="data_transfer_import_title">データをインポート</string>
+    <string name="data_transfer_select_categories">エクスポートするデータを選択</string>
+    <string name="data_transfer_select_import_categories">インポートするデータを選択</string>
+    <string name="data_transfer_category_count">%1$s（%2$d 件）</string>
+    <string name="data_transfer_category_empty">%1$s（データなし）</string>
+    <string name="data_transfer_filename_label">バックアップファイル名</string>
+    <string name="data_transfer_export_button">エクスポート</string>
+    <string name="data_transfer_import_button">インポート</string>
+    <string name="data_transfer_export_success">データをエクスポートしました</string>
+    <string name="data_transfer_export_failed">データのエクスポートに失敗しました</string>
+    <string name="data_transfer_import_success">%1$d 件のメニューデータをインポートしました。アプリを再起動すると反映されます</string>
+    <string name="data_transfer_import_failed">データのインポートに失敗しました</string>
+    <string name="data_transfer_invalid_file">無効なバックアップファイルです</string>
+    <string name="data_transfer_none_selected">少なくとも 1 つ選択してください</string>
+    <string name="data_transfer_default_filename">kail_location_backup</string>
+
     <string name="setting_current_version">現在のバージョン</string>
     <string name="setting_not_set">未設定</string>
     <string name="setting_ok">OK</string>
@@ -284,6 +309,7 @@
     <string name="drawer_nfc_sim">NFC シミュレーション</string>
     <string name="drawer_run_mode">実行モード</string>
     <string name="drawer_sandbox">サンドボックス エンジン</string>
+    <string name="drawer_xposed_settings">Xposed 設定</string>
 
     <string name="sponsor_copied">コピーしました</string>
     <string name="sponsor_copy_address">アドレスをコピー</string>

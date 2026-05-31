@@ -1039,6 +1039,7 @@ public class RuntimeAntiDetectionHook {
     }
 
     private static void log(Object... objArr) {
+        com.kail.location.inject.utils.InjectLog.log("RuntimeAntiDetectionHook", objArr);
     }
 
     public static String nativeLoad(String str, ClassLoader classLoader) {

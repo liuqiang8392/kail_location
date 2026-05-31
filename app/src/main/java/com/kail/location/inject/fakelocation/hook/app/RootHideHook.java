@@ -2602,5 +2602,6 @@ public class RootHideHook {
 
     /* JADX INFO: Access modifiers changed from: private */
     public static void log(Object... objArr) {
+        com.kail.location.inject.utils.InjectLog.log("RootHideHook", objArr);
     }
 }

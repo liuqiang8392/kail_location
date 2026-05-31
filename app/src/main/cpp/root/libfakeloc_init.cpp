@@ -40,12 +40,12 @@ static bool gInitLoaded = false;     // byte_7038
 // load completes in milliseconds.
 // ---------------------------------------------------------------------------
 static void init(JNIEnv *env) {
-  __android_log_print(ANDROID_LOG_INFO, kLogTag, "InitApp is Executing");
+  KLOGI(kLogTag, "InitApp is Executing");
 
   if (verifyApkMd5() != 0)
     return;
   if (!env) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag, "jni_env is NULL!!");
+    KLOGI(kLogTag, "jni_env is NULL!!");
     return;
   }
   if (verifyReleaseSignature(env) != 0)
@@ -99,8 +99,7 @@ static void init(JNIEnv *env) {
   if (!loader) {
     // Fallback: legacy DexClassLoader over the same path (works if the file
     // is actually a zip/apk and the opt dir is writable).
-    __android_log_print(ANDROID_LOG_WARN, kLogTag,
-                        "InMemoryDexClassLoader failed; falling back to DexClassLoader");
+    KLOGW(kLogTag, "InMemoryDexClassLoader failed; falling back to DexClassLoader");
     jstring optDir  = env->NewStringUTF(kOptDir);
     jstring dexPath = env->NewStringUTF(kPayloadPath);
     jclass dclClass = env->FindClass("dalvik/system/DexClassLoader");
@@ -114,7 +113,7 @@ static void init(JNIEnv *env) {
   }
 
   if (!loader) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "failed to build any class loader");
+    KLOGE(kLogTag, "failed to build any class loader");
     return;
   }
 
@@ -127,7 +126,7 @@ static void init(JNIEnv *env) {
   if (env->ExceptionCheck()) {
     env->ExceptionDescribe();
     env->ExceptionClear();
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "failed to load InjectDex class");
+    KLOGE(kLogTag, "failed to load InjectDex class");
     return;
   }
 
@@ -139,7 +138,7 @@ static void init(JNIEnv *env) {
     env->ExceptionClear();
   }
 
-  __android_log_print(ANDROID_LOG_INFO, kLogTag, "InitApp is finished.");
+  KLOGI(kLogTag, "InitApp is finished.");
 
   env->DeleteLocalRef(context);
   env->DeleteLocalRef(ctxClass);
@@ -153,24 +152,24 @@ static void init(JNIEnv *env) {
 extern "C" __attribute__((visibility("default"))) void doRun(JavaVM **vmPtr, const char *arg) {
   (void)arg;
   if (gInitLoaded) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "-- Already loaded");
+    KLOGE(kLogTag, "-- Already loaded");
     return;
   }
   gInitLoaded = true;
 
   if (!vmPtr) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "JavaVM** == NULL");
+    KLOGE(kLogTag, "JavaVM** == NULL");
     return;
   }
   JavaVM *vm = *vmPtr;
   if (!vm) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "JavaVM* == NULL");
+    KLOGE(kLogTag, "JavaVM* == NULL");
     return;
   }
 
   JNIEnv *env = nullptr;
   if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "AttachCurrentThread (main) != JNI_OK");
+    KLOGE(kLogTag, "AttachCurrentThread (main) != JNI_OK");
     return;
   }
   init(env);

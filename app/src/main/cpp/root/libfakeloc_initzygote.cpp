@@ -25,10 +25,10 @@ static bool gInitLoaded = false;     // byte_5960 / byte_6E28
 // init  (sub_1D34 / sub_23E0)
 // ---------------------------------------------------------------------------
 static void init(JNIEnv *env) {
-  __android_log_print(ANDROID_LOG_INFO, kLogTag, "InitZygote is Executing");
+  KLOGI(kLogTag, "InitZygote is Executing");
 
   if (!env) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag, "jni_env is NULL!!");
+    KLOGI(kLogTag, "jni_env is NULL!!");
     return;
   }
 
@@ -57,7 +57,7 @@ static void init(JNIEnv *env) {
       injectClass, "initZygote", "(Ljava/lang/Object;)[Ljava/lang/Object;");
   env->CallStaticObjectMethod(injectClass, initZygote, systemLoader);
 
-  __android_log_print(ANDROID_LOG_INFO, kLogTag, "InitZygote is finished");
+  KLOGI(kLogTag, "InitZygote is finished");
 
   env->DeleteLocalRef(optDir);
   env->DeleteLocalRef(dexPath);
@@ -72,24 +72,24 @@ static void init(JNIEnv *env) {
 extern "C" __attribute__((visibility("default"))) void doRun(JavaVM **vmPtr, const char *arg) {
   (void)arg;
   if (gInitLoaded) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "-- Already loaded");
+    KLOGE(kLogTag, "-- Already loaded");
     return;
   }
   gInitLoaded = true;
 
   if (!vmPtr) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "JavaVM** == NULL");
+    KLOGE(kLogTag, "JavaVM** == NULL");
     return;
   }
   JavaVM *vm = *vmPtr;
   if (!vm) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "JavaVM* == NULL");
+    KLOGE(kLogTag, "JavaVM* == NULL");
     return;
   }
 
   JNIEnv *env = nullptr;
   if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "AttachCurrentThread (main) != JNI_OK");
+    KLOGE(kLogTag, "AttachCurrentThread (main) != JNI_OK");
     return;
   }
   init(env);

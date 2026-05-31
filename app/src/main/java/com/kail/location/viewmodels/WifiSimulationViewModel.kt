@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.preference.PreferenceManager
 import com.kail.location.models.WifiInfo
+import com.kail.location.utils.KailLog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +27,7 @@ class WifiSimulationViewModel(application: Application) : AndroidViewModel(appli
     private val wifiManager = application.applicationContext.getSystemService(WifiManager::class.java)
 
     companion object {
+        private const val TAG = "WifiSimulationVM"
         const val KEY_WIFI_ENABLED = "wifi_sim_enabled"
         const val KEY_WIFI_LIST = "wifi_sim_list"
         const val KEY_WIFI_SELECTED_IDS = "wifi_sim_selected_ids" // comma-separated
@@ -141,8 +143,9 @@ class WifiSimulationViewModel(application: Application) : AndroidViewModel(appli
                 )
             }
             ctx.startService(intent)
+            KailLog.i(ctx, TAG, "stopServiceGoRootWifiMode: sent CONTROL_STOP_WIFI")
         } catch (e: Exception) {
-            e.printStackTrace()
+            KailLog.e(getApplication(), TAG, "stopServiceGoRootWifiMode failed", e)
         }
     }
 
@@ -162,8 +165,9 @@ class WifiSimulationViewModel(application: Application) : AndroidViewModel(appli
                 )
             }
             ctx.startService(intent)
+            KailLog.i(ctx, TAG, "startServiceGoRootWifiMode: started with ${activeWifiList.size} networks")
         } catch (e: Exception) {
-            e.printStackTrace()
+            KailLog.e(getApplication(), TAG, "startServiceGoRootWifiMode failed", e)
         }
     }
 
@@ -214,8 +218,9 @@ target_packages="""
                 com.kail.location.utils.ShellUtils.executeCommand("echo '$content' > $confFile")
                 com.kail.location.utils.ShellUtils.executeCommand("chmod 777 $confFile")
             }
+            KailLog.i(getApplication(), TAG, "writeWifiConfigToFile: enabled=$effectiveEnabled networks=${activeWifiList.size}")
         } catch (e: Exception) {
-            e.printStackTrace()
+            KailLog.e(getApplication(), TAG, "writeWifiConfigToFile failed", e)
         }
     }
 
@@ -307,7 +312,9 @@ target_packages="""
                 if (!updated.isNullOrEmpty()) {
                     _nearbyResults.value = updated
                 }
-            } catch (_: Exception) {
+                KailLog.i(getApplication(), TAG, "scanNearbyWifi: ${updated?.size ?: 0} results")
+            } catch (e: Exception) {
+                KailLog.e(getApplication(), TAG, "scanNearbyWifi failed", e)
             } finally {
                 _isScanning.value = false
             }

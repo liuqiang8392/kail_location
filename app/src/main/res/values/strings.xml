@@ -281,6 +281,31 @@
     <string name="setting_clear_log_cache_failed">日志缓存清除失败</string>
     <string name="setting_map_zoom">悬浮窗地图缩放比例</string>
     <string name="setting_map_zoom_summary">范围 10-21，数值越大地图越详细</string>
+
+    <!-- 数据导出 / 导入 -->
+    <string name="setting_group_data_transfer">数据备份</string>
+    <string name="data_transfer_group_general">通用（所有模式）</string>
+    <string name="setting_export_data">导出数据</string>
+    <string name="setting_export_data_summary">将所选菜单的设置导出为 .bak 备份文件</string>
+    <string name="setting_import_data">导入数据</string>
+    <string name="setting_import_data_summary">从 .bak 备份文件中选择性恢复菜单设置</string>
+    <string name="data_transfer_export_title">导出数据</string>
+    <string name="data_transfer_import_title">导入数据</string>
+    <string name="data_transfer_select_categories">选择要导出的数据</string>
+    <string name="data_transfer_select_import_categories">选择要导入的数据</string>
+    <string name="data_transfer_category_count">%1$s（%2$d 项）</string>
+    <string name="data_transfer_category_empty">%1$s（无数据）</string>
+    <string name="data_transfer_filename_label">备份文件名</string>
+    <string name="data_transfer_export_button">导出</string>
+    <string name="data_transfer_import_button">导入</string>
+    <string name="data_transfer_export_success">数据导出成功</string>
+    <string name="data_transfer_export_failed">数据导出失败</string>
+    <string name="data_transfer_import_success">已导入 %1$d 项菜单数据，重启应用后生效</string>
+    <string name="data_transfer_import_failed">数据导入失败</string>
+    <string name="data_transfer_invalid_file">无效的备份文件</string>
+    <string name="data_transfer_none_selected">请至少选择一项</string>
+    <string name="data_transfer_default_filename">kail_location_backup</string>
+
     <string name="setting_current_version">当前版本</string>
     <string name="setting_not_set">未设置</string>
     <string name="setting_ok">确定</string>
@@ -333,6 +358,23 @@
     <string name="ind_sim_select_apps">选择目标应用</string>
     <string name="ind_sim_search_apps">搜索应用</string>
     <string name="ind_sim_selected_count">已选择 %d 个应用</string>
+
+    <!-- Root &amp; App Hiding -->
+    <string name="nav_menu_root_app_hide">Root与应用隐藏</string>
+    <string name="root_hide_title">Root与应用隐藏</string>
+    <string name="root_hide_status_running">隐藏运行中</string>
+    <string name="root_hide_status_stopped">隐藏已停止</string>
+    <string name="root_hide_desc">选择目标应用后开启。开启后，对选中的应用隐藏 Root / 框架痕迹与已安装应用列表，其它应用不受影响。底层通过 FakeLocation 注入层生效。</string>
+    <string name="root_hide_hide_root">隐藏 Root</string>
+    <string name="root_hide_hide_root_summary">对目标应用隐藏 Root、Magisk、Xposed 等痕迹</string>
+    <string name="root_hide_hide_applist">隐藏应用列表</string>
+    <string name="root_hide_hide_applist_summary">对目标应用隐藏本机已安装的其它应用（需开启隐藏 Root）</string>
+    <string name="root_hide_target_apps">目标应用</string>
+    <string name="root_hide_target_apps_hint">点击选择要隐藏的应用</string>
+    <string name="root_hide_start">开始隐藏</string>
+    <string name="root_hide_stop">停止隐藏</string>
+    <string name="root_hide_no_apps">请先选择目标应用并至少开启一项隐藏</string>
+    <string name="root_hide_select_apps">选择目标应用</string>
 
     <!-- WiFi Simulation -->
     <string name="nav_menu_wifi_sim">WiFi模拟</string>

@@ -4,7 +4,6 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Process;
-import android.util.Log;
 import com.kail.location.inject.fakelocation.service.AntiDetectionManagerService;
 import com.kail.location.inject.fakelocation.service.HideRootManagerService;
 import com.kail.location.inject.fakelocation.service.MockLocationManagerService;
@@ -70,7 +69,7 @@ public class InjectDex {
                 }
             }
             if (!LHooker.initialized) {
-                Log.e("InjectDex", "App unfinished.");
+                com.kail.location.inject.utils.InjectLog.e("InjectDex", "hookApplication aborted: LHooker not initialized");
                 return null;
             }
             LHooker.suspendAll();
@@ -85,14 +84,14 @@ public class InjectDex {
             return null;
         } catch (Throwable th) {
             th.printStackTrace();
-            Log.e("InjectDex", "App err:" + th.getMessage());
+            com.kail.location.inject.utils.InjectLog.e("InjectDex", "hookApplication error", th);
             return null;
         }
     }
 
     public static Object[] init(Object contextObject) {
         applicationContext = (Context) contextObject;
-        Log.d("InjectDex", "init." + contextObject);
+        com.kail.location.inject.utils.InjectLog.i("InjectDex", "init: " + contextObject);
         try {
             initializeMainThread((Context) contextObject);
             HiddenApiBypass.bypassHiddenApiRestrictions();
@@ -105,17 +104,17 @@ public class InjectDex {
             ServiceManagerBridge.addService(((Context) contextObject).getClassLoader(), "service_nativecatch", new NativeCatchManagerService());
             PackageSignatureVerifier.verifyPackageSignature((Context) contextObject, "com.kail.location", "service_mock_bluetooth");
             if (!LHooker.initialized) {
-                Log.e("InjectDex", "Init unfinished.");
+                com.kail.location.inject.utils.InjectLog.e("InjectDex", "init aborted: LHooker not initialized");
                 return null;
             }
             LHooker.suspendAll();
-            Log.d("InjectDex", "Init finish.");
+            com.kail.location.inject.utils.InjectLog.i("InjectDex", "init finished, all services registered");
             return null;
         } catch (RuntimeException unused) {
             return null;
         } catch (Throwable th) {
             th.printStackTrace();
-            Log.e("InjectDex", "Init error.");
+            com.kail.location.inject.utils.InjectLog.e("InjectDex", "init error", th);
             return null;
         }
     }
@@ -123,7 +122,7 @@ public class InjectDex {
     public static Object[] initZygote(Object startupParam) {
         String libraryPath;
         String processLibraryPath;
-        Log.d("InjectDex", "initZygote." + startupParam);
+        com.kail.location.inject.utils.InjectLog.i("InjectDex", "initZygote: " + startupParam);
         HiddenApiBypass.bypassHiddenApiRestrictions();
         if (LHooker.isDeviceX86_64() || LHooker.isDeviceX86()) {
             libraryPath = "/data/kail-loc/liblhookerx.so";
@@ -141,7 +140,7 @@ public class InjectDex {
             LHooker.loadHookLibrary(libraryPath);
         }
         AppProcessHook.hook(ClassLoader.getSystemClassLoader());
-        Log.d("InjectDex", "InitZygote finish." + LHooker.initialized);
+        com.kail.location.inject.utils.InjectLog.i("InjectDex", "initZygote finished, initialized=" + LHooker.initialized);
         return null;
     }
 
@@ -150,7 +149,7 @@ public class InjectDex {
     }
 
     static void log(String message) {
-        Log.d("InjectDex", message);
+        com.kail.location.inject.utils.InjectLog.d("InjectDex", message);
     }
 
     private static void initializeMainThread(Context context) {

@@ -1,7 +1,7 @@
 package com.kail.location.network
 
-import android.util.Log
 import com.kail.location.BuildConfig
+import com.kail.location.utils.KailLog
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -71,8 +71,10 @@ object RuoYiClient {
             if (code != 0) {
                 throw Exception(root.optString("msg", "获取剩余次数失败"))
             }
-            root.getJSONObject("data").optInt("remainingToday", 0)
-        }
+            val remaining = root.getJSONObject("data").optInt("remainingToday", 0)
+            KailLog.i(null, TAG, "checkSimulation: http=${response.code} code=$code remainingToday=$remaining")
+            remaining
+        }.onFailure { KailLog.w(null, TAG, "checkSimulation failed: ${it.message}") }
     }
 
     fun useSimulation(token: String): Result<Unit> {
@@ -89,14 +91,13 @@ object RuoYiClient {
             val response = okHttpClient.newCall(request).execute()
             val body = response.body?.string() ?: throw Exception("Empty response")
 
-            Log.d(TAG, "Use simulation response: $body")
-
             val root = JSONObject(body)
             val code = root.optInt("code", -1)
+            KailLog.i(null, TAG, "useSimulation: http=${response.code} code=$code msg=${root.optString("msg", "")}")
             if (code != 0) {
                 throw Exception(root.optString("msg", "模拟次数已用完"))
             }
-        }
+        }.onFailure { KailLog.w(null, TAG, "useSimulation failed: ${it.message}") }
     }
 
     fun sendMailCode(mail: String, scene: Int): Result<Unit> {
@@ -117,14 +118,13 @@ object RuoYiClient {
             val response = okHttpClient.newCall(request).execute()
             val body = response.body?.string() ?: throw Exception("Empty response")
 
-            Log.d(TAG, "Send mail code response: $body")
-
             val root = JSONObject(body)
             val code = root.optInt("code", -1)
+            KailLog.i(null, TAG, "sendMailCode(scene=$scene): http=${response.code} code=$code")
             if (code != 0) {
                 throw Exception(root.optString("msg", "发送验证码失败"))
             }
-        }
+        }.onFailure { KailLog.w(null, TAG, "sendMailCode failed: ${it.message}") }
     }
 
     fun loginByMail(mail: String, code: String): Result<AuthResult> {
@@ -145,10 +145,10 @@ object RuoYiClient {
             val response = okHttpClient.newCall(request).execute()
             val body = response.body?.string() ?: throw Exception("Empty response")
 
-            Log.d(TAG, "Mail login response: $body")
-
             val root = JSONObject(body)
             val respCode = root.optInt("code", -1)
+            // 不打印 body：包含 accessToken。
+            KailLog.i(null, TAG, "loginByMail: http=${response.code} code=$respCode")
             if (respCode != 0) {
                 throw Exception(root.optString("msg", "登录失败"))
             }
@@ -213,8 +213,9 @@ object RuoYiClient {
                     trialDays = item.optInt("trialDays", 0)
                 ))
             }
+            KailLog.i(null, TAG, "getPlans: http=${response.code} code=$respCode count=${plans.size}")
             plans
-        }
+        }.onFailure { KailLog.w(null, TAG, "getPlans failed: ${it.message}") }
     }
 
     suspend fun getSubscriptionStatus(token: String): Result<SubscriptionStatus> {
@@ -231,8 +232,6 @@ object RuoYiClient {
             val response = okHttpClient.newCall(request).execute()
             val body = response.body?.string() ?: throw Exception("Empty response")
 
-            Log.d(TAG, "Subscription status response: $body")
-
             val root = JSONObject(body)
             val respCode = root.optInt("code", -1)
             if (respCode != 0) {
@@ -240,13 +239,15 @@ object RuoYiClient {
             }
 
             val data = root.getJSONObject("data")
-            SubscriptionStatus(
+            val status = SubscriptionStatus(
                 active = data.optBoolean("active", false),
                 planName = data.optString("planName", ""),
                 expiresAt = data.optString("expiresAt", ""),
                 daysRemaining = data.optInt("daysRemaining", 0)
             )
-        }
+            KailLog.i(null, TAG, "getSubscriptionStatus: http=${response.code} active=${status.active} daysRemaining=${status.daysRemaining}")
+            status
+        }.onFailure { KailLog.w(null, TAG, "getSubscriptionStatus failed: ${it.message}") }
     }
 
 }

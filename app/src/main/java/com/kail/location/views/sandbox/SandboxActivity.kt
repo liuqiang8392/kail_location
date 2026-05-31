@@ -77,6 +77,10 @@ class SandboxActivity : BaseActivity() {
                                 startActivity(Intent(this, com.kail.location.views.independentsimulation.IndependentSimulationActivity::class.java))
                                 finish()
                             }
+                            R.id.nav_root_app_hide -> {
+                                startActivity(Intent(this, com.kail.location.views.roothide.RootAppHideActivity::class.java))
+                                finish()
+                            }
                             R.id.nav_wifi_simulation -> {
                                 startActivity(Intent(this, com.kail.location.views.wifisimulation.WifiSimulationActivity::class.java))
                                 finish()

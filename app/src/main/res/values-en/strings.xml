@@ -256,6 +256,31 @@
     <string name="setting_clear_log_cache_failed">Failed to clear log cache</string>
     <string name="setting_map_zoom">Floating Window Map Zoom</string>
     <string name="setting_map_zoom_summary">Range 10-21, higher = more detailed</string>
+
+    <!-- Data export / import -->
+    <string name="setting_group_data_transfer">Data Backup</string>
+    <string name="data_transfer_group_general">General (all modes)</string>
+    <string name="setting_export_data">Export Data</string>
+    <string name="setting_export_data_summary">Export the selected menus\' settings to a .bak backup file</string>
+    <string name="setting_import_data">Import Data</string>
+    <string name="setting_import_data_summary">Selectively restore menu settings from a .bak backup file</string>
+    <string name="data_transfer_export_title">Export Data</string>
+    <string name="data_transfer_import_title">Import Data</string>
+    <string name="data_transfer_select_categories">Select data to export</string>
+    <string name="data_transfer_select_import_categories">Select data to import</string>
+    <string name="data_transfer_category_count">%1$s (%2$d items)</string>
+    <string name="data_transfer_category_empty">%1$s (no data)</string>
+    <string name="data_transfer_filename_label">Backup file name</string>
+    <string name="data_transfer_export_button">Export</string>
+    <string name="data_transfer_import_button">Import</string>
+    <string name="data_transfer_export_success">Data exported successfully</string>
+    <string name="data_transfer_export_failed">Data export failed</string>
+    <string name="data_transfer_import_success">Imported %1$d menu data set(s); restart the app to apply</string>
+    <string name="data_transfer_import_failed">Data import failed</string>
+    <string name="data_transfer_invalid_file">Invalid backup file</string>
+    <string name="data_transfer_none_selected">Please select at least one item</string>
+    <string name="data_transfer_default_filename">kail_location_backup</string>
+
     <string name="setting_current_version">Current Version</string>
     <string name="setting_not_set">Not set</string>
     <string name="setting_ok">OK</string>

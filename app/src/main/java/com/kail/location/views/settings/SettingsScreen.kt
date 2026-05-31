@@ -21,6 +21,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kail.location.R
+import com.kail.location.utils.DataTransferManager
 import com.kail.location.utils.KailLog
 import com.kail.location.viewmodels.SettingsViewModel
 
@@ -53,6 +54,46 @@ fun SettingsScreen(
             ).show()
         }
         logCacheSize = KailLog.getLogCacheSizeBytes(context)
+    }
+
+    // ===== 数据导出 / 导入 状态 =====
+    var showExportDialog by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
+    // 待导出的类别集合（在导出对话框中确认后传给文件创建回调）
+    var pendingExportCategories by remember { mutableStateOf<Set<String>>(emptySet()) }
+    // 已解析的待导入备份及其类别选择
+    var parsedBackup by remember { mutableStateOf<DataTransferManager.ParsedBackup?>(null) }
+
+    val exportDataLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        if (uri != null && pendingExportCategories.isNotEmpty()) {
+            val ok = DataTransferManager.export(context, uri, pendingExportCategories)
+            android.widget.Toast.makeText(
+                context,
+                if (ok) context.getString(R.string.data_transfer_export_success) else context.getString(R.string.data_transfer_export_failed),
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+        pendingExportCategories = emptySet()
+    }
+
+    val pickBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            val parsed = DataTransferManager.parseBackup(context, uri)
+            if (parsed == null) {
+                android.widget.Toast.makeText(
+                    context,
+                    context.getString(R.string.data_transfer_invalid_file),
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                parsedBackup = parsed
+                showImportDialog = true
+            }
+        }
     }
 
     // State observation
@@ -282,9 +323,79 @@ fun SettingsScreen(
                 description = stringResource(R.string.setting_map_zoom_summary)
             )
 
+            // ===== Group: 数据备份 =====
+            PreferenceCategory(title = stringResource(R.string.setting_group_data_transfer))
+
+            ActionPreference(
+                title = stringResource(R.string.setting_export_data),
+                summary = stringResource(R.string.setting_export_data_summary),
+                onClick = { showExportDialog = true }
+            )
+
+            ActionPreference(
+                title = stringResource(R.string.setting_import_data),
+                summary = stringResource(R.string.setting_import_data_summary),
+                onClick = { pickBackupLauncher.launch(arrayOf("*/*")) }
+            )
+
             ListItem(
                 headlineContent = { Text(stringResource(R.string.setting_current_version)) },
                 supportingContent = { Text(viewModel.appVersion) }
+            )
+        }
+    }
+
+    if (showExportDialog) {
+        DataCategorySelectionDialog(
+            title = stringResource(R.string.data_transfer_export_title),
+            description = stringResource(R.string.data_transfer_select_categories),
+            entryCounts = remember { DataTransferManager.availableEntryCounts(context) },
+            confirmText = stringResource(R.string.data_transfer_export_button),
+            // 默认只勾选有数据的类别
+            initiallySelected = remember {
+                DataTransferManager.availableEntryCounts(context)
+                    .filterValues { it > 0 }.keys
+            },
+            onConfirm = { selected ->
+                showExportDialog = false
+                pendingExportCategories = selected
+                val defaultName = context.getString(R.string.data_transfer_default_filename)
+                exportDataLauncher.launch("$defaultName.${DataTransferManager.FILE_EXTENSION}")
+            },
+            onDismiss = { showExportDialog = false }
+        )
+    }
+
+    if (showImportDialog) {
+        val backup = parsedBackup
+        if (backup == null) {
+            showImportDialog = false
+        } else {
+            DataCategorySelectionDialog(
+                title = stringResource(R.string.data_transfer_import_title),
+                description = stringResource(R.string.data_transfer_select_import_categories),
+                entryCounts = backup.categoryEntryCounts,
+                confirmText = stringResource(R.string.data_transfer_import_button),
+                initiallySelected = backup.categoryEntryCounts.keys,
+                // 仅展示备份文件中存在的类别
+                restrictToKeys = backup.categoryEntryCounts.keys,
+                onConfirm = { selected ->
+                    showImportDialog = false
+                    val imported = DataTransferManager.import(context, backup, selected)
+                    parsedBackup = null
+                    android.widget.Toast.makeText(
+                        context,
+                        if (imported.isNotEmpty())
+                            context.getString(R.string.data_transfer_import_success, imported.size)
+                        else
+                            context.getString(R.string.data_transfer_import_failed),
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                },
+                onDismiss = {
+                    showImportDialog = false
+                    parsedBackup = null
+                }
             )
         }
     }
@@ -323,6 +434,106 @@ private fun formatBytes(bytes: Long): String {
     if (kb < 1024.0) return String.format(java.util.Locale.US, "%.1f KB", kb)
     val mb = kb / 1024.0
     return String.format(java.util.Locale.US, "%.2f MB", mb)
+}
+
+/**
+ * 数据导出 / 导入的类别选择对话框。
+ *
+ * 列出每个导航菜单类别（带数据条目数量），允许用户多选要导出或导入的菜单数据。
+ *
+ * @param entryCounts 类别 id -> 条目数量。
+ * @param initiallySelected 默认勾选的类别 id。
+ * @param restrictToKeys 若非 null，仅展示这些类别（用于导入时只显示备份中存在的菜单）。
+ * @param onConfirm 确认回调，参数为最终选中的类别 id 集合。
+ */
+@Composable
+fun DataCategorySelectionDialog(
+    title: String,
+    description: String,
+    entryCounts: Map<String, Int>,
+    confirmText: String,
+    initiallySelected: Set<String>,
+    restrictToKeys: Set<String>? = null,
+    onConfirm: (Set<String>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val visibleCategories = DataTransferManager.categories.filter {
+        restrictToKeys == null || it.id in restrictToKeys
+    }
+    val selected = remember {
+        mutableStateListOf<String>().apply { addAll(initiallySelected) }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(description, style = MaterialTheme.typography.bodySmall)
+                Spacer(modifier = Modifier.height(8.dp))
+                // 按运行模式分组展示菜单类别
+                DataTransferManager.ModeGroup.entries.forEach { group ->
+                    val groupCategories = visibleCategories.filter { it.group == group }
+                    if (groupCategories.isEmpty()) return@forEach
+                    Text(
+                        text = stringResource(group.labelRes),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                    )
+                    groupCategories.forEach { category ->
+                        val count = entryCounts[category.id] ?: 0
+                        val name = stringResource(category.titleRes)
+                        val label = if (count > 0) {
+                            context.getString(R.string.data_transfer_category_count, name, count)
+                        } else {
+                            context.getString(R.string.data_transfer_category_empty, name)
+                        }
+                        val isChecked = category.id in selected
+                        val enabled = count > 0
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = enabled) {
+                                    if (isChecked) selected.remove(category.id) else selected.add(category.id)
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = if (enabled) {
+                                    { checked -> if (checked) selected.add(category.id) else selected.remove(category.id) }
+                                } else null,
+                                enabled = enabled
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = label)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (selected.isEmpty()) {
+                        android.widget.Toast.makeText(
+                            context,
+                            context.getString(R.string.data_transfer_none_selected),
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        onConfirm(selected.toSet())
+                    }
+                }
+            ) { Text(confirmText) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.setting_cancel)) }
+        }
+    )
 }
 
 /**

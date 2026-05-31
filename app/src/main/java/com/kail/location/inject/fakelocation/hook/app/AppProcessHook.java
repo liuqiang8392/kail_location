@@ -652,5 +652,6 @@ public class AppProcessHook {
     }
 
     private static void log(Object... objArr) {
+        com.kail.location.inject.utils.InjectLog.log("AppProcessHook", objArr);
     }
 }

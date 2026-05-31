@@ -94,6 +94,9 @@ class RouteSimulationActivity : BaseActivity(), SensorEventListener {
                         R.id.nav_independent_simulation -> {
                             startActivity(Intent(this@RouteSimulationActivity, com.kail.location.views.independentsimulation.IndependentSimulationActivity::class.java))
                         }
+                        R.id.nav_root_app_hide -> {
+                            startActivity(Intent(this@RouteSimulationActivity, com.kail.location.views.roothide.RootAppHideActivity::class.java))
+                        }
                         R.id.nav_wifi_simulation -> {
                             startActivity(Intent(this@RouteSimulationActivity, com.kail.location.views.wifisimulation.WifiSimulationActivity::class.java))
                         }

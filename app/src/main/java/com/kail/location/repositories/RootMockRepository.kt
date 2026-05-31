@@ -6,9 +6,14 @@ import android.os.Build
 import com.kail.location.service.Root.ServiceGoRoot
 import com.kail.location.service.Developer.ServiceGoDeveloper
 import com.kail.location.service.Xposed.ServiceGoXposed
+import com.kail.location.utils.KailLog
 import com.kail.location.views.locationpicker.LocationPickerActivity
 
 class RootMockRepository(private val app: Application) {
+    private companion object {
+        const val TAG = "RootMockRepository"
+    }
+
     private fun getServiceClass(mode: String) = when (mode) {
         "root" -> ServiceGoRoot::class.java
         "xposed" -> ServiceGoXposed::class.java
@@ -25,16 +30,26 @@ class RootMockRepository(private val app: Application) {
         intent.putExtra(extraCoordType, "BD09")
         intent.putExtra(LocationPickerActivity.LAT_MSG_ID, lat)
         intent.putExtra(LocationPickerActivity.LNG_MSG_ID, lng)
-        if (Build.VERSION.SDK_INT >= 26) {
-            app.startForegroundService(intent)
-        } else {
-            app.startService(intent)
+        KailLog.i(app, TAG, "startMock mode=$runMode lat=$lat lng=$lng -> ${serviceClass.simpleName}")
+        try {
+            if (Build.VERSION.SDK_INT >= 26) {
+                app.startForegroundService(intent)
+            } else {
+                app.startService(intent)
+            }
+        } catch (e: Exception) {
+            KailLog.e(app, TAG, "startMock failed for ${serviceClass.simpleName}", e)
         }
     }
 
     fun stopMock(runMode: String) {
         val serviceClass = getServiceClass(runMode)
         val intent = Intent(app, serviceClass)
-        app.stopService(intent)
+        KailLog.i(app, TAG, "stopMock mode=$runMode -> ${serviceClass.simpleName}")
+        try {
+            app.stopService(intent)
+        } catch (e: Exception) {
+            KailLog.e(app, TAG, "stopMock failed for ${serviceClass.simpleName}", e)
+        }
     }
 }

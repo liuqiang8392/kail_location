@@ -349,8 +349,7 @@ static void doHook(const char *libcPath) {
 
   ElfReader reader(name, base);
   if (reader.parse() != 0) {
-    __android_log_print(ANDROID_LOG_ERROR, kAdTag, "failed to parse %s in %d maps at %p",
-                        "libc.so", getpid(), base);
+    KLOGE(kAdTag, "failed to parse %s in %d maps at %p", "libc.so", getpid(), base);
     return;
   }
 

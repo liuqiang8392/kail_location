@@ -145,6 +145,27 @@ class ServiceGoRoot : Service() {
     private var modeCellOnly: Boolean = false
 
     /**
+     * Set true only when the start intent flagged HIDE_ONLY — the "Root与应用
+     * 隐藏" (Root & App Hiding) screen. This mode does not mock location; it
+     * only pushes the hide allow-list/flags into the FakeLocation
+     * service_hide_root binder and injects the target app processes so
+     * RootHideHook / LAntiDetect install there.
+     */
+    private var modeHideOnly: Boolean = false
+
+    /** Root/framework-artifact hiding toggle for the selected target apps. */
+    private var hideRootEnabled: Boolean = false
+
+    /** Installed-app-list hiding toggle (requires [hideRootEnabled]). */
+    private var hideAppListEnabled: Boolean = false
+
+    /** Packages the hide features apply to. Empty means "no targets". */
+    private var pendingHidePackages: List<String> = emptyList()
+
+    /** Cached binder into the FakeLocation hide-root layer (service_hide_root). */
+    private var hideRootService: com.kail.location.inject.fakelocation.aidl.IHideRootManager? = null
+
+    /**
      * WiFi / cell networks selected in the UI for spoofing. Populated from the
      * start intent's [EXTRA_WIFI_LIST] / [EXTRA_CELL_LIST] parcelable extras.
      * Pushed into the FakeLocation injection layer via the service_mock_wifi /
@@ -185,6 +206,10 @@ class ServiceGoRoot : Service() {
         const val EXTRA_CELL_ONLY = "EXTRA_CELL_ONLY"
         const val EXTRA_WIFI_LIST = "EXTRA_WIFI_LIST"
         const val EXTRA_CELL_LIST = "EXTRA_CELL_LIST"
+        const val EXTRA_HIDE_ONLY = "EXTRA_HIDE_ONLY"
+        const val EXTRA_HIDE_ROOT = "EXTRA_HIDE_ROOT"
+        const val EXTRA_HIDE_APPLIST = "EXTRA_HIDE_APPLIST"
+        const val EXTRA_HIDE_PACKAGES = "EXTRA_HIDE_PACKAGES"
 
         const val CONTROL_PAUSE = ServiceConstants.CONTROL_PAUSE
         const val CONTROL_RESUME = ServiceConstants.CONTROL_RESUME
@@ -197,6 +222,8 @@ class ServiceGoRoot : Service() {
         const val CONTROL_STOP_CELL = "stop_cell"
         const val CONTROL_SET_ALLOW_PACKAGES = "set_allow_packages"
         const val EXTRA_ALLOW_PACKAGES = "EXTRA_ALLOW_PACKAGES"
+        const val CONTROL_SET_HIDE = "set_hide"
+        const val CONTROL_STOP_HIDE = "stop_hide"
 
         const val COORD_WGS84 = ServiceConstants.COORD_WGS84
         const val COORD_BD09 = ServiceConstants.COORD_BD09
@@ -269,6 +296,19 @@ class ServiceGoRoot : Service() {
         if (intent != null) {
             modeWifiOnly = intent.getBooleanExtra(EXTRA_WIFI_ONLY, false)
             modeCellOnly = intent.getBooleanExtra(EXTRA_CELL_ONLY, false)
+            modeHideOnly = intent.getBooleanExtra(EXTRA_HIDE_ONLY, false)
+
+            // "Root与应用隐藏" start: no location/WiFi/cell mocking, just stage
+            // the inject, push the hide config into service_hide_root, and
+            // inject the selected app processes so RootHideHook installs there.
+            if (modeHideOnly) {
+                hideRootEnabled = intent.getBooleanExtra(EXTRA_HIDE_ROOT, false)
+                hideAppListEnabled = intent.getBooleanExtra(EXTRA_HIDE_APPLIST, false)
+                pendingHidePackages = intent.getStringArrayListExtra(EXTRA_HIDE_PACKAGES) ?: emptyList()
+                KailLog.i(this, TAG, "onStartCommand hideOnly hideRoot=$hideRootEnabled hideAppList=$hideAppListEnabled pkgs=${pendingHidePackages.size}")
+                Thread({ startHideOnInjection() }, "ServiceGoRootHideBootstrap").start()
+                return START_STICKY
+            }
 
             // Selected WiFi / cell networks (parcelable lists from the UI).
             runCatching {
@@ -325,8 +365,14 @@ class ServiceGoRoot : Service() {
             // chain. The injection step shells out to su + kail_inject, which
             // can take a couple of seconds, so run it off the main thread.
             ensureNativeHookOnce()
-            applyStepSimulation()
-            Thread({ startMockLocationOnInjection() }, "ServiceGoRootBootstrap").start()
+            Thread({
+                startMockLocationOnInjection()
+                // Step mock goes through the service_mock_location binder, which
+                // only exists after the inject above completes — so apply it
+                // here on the same bootstrap thread rather than on the main
+                // thread before the binder is online.
+                applyStepSimulation()
+            }, "ServiceGoRootBootstrap").start()
 
             if (!modeWifiOnly && !modeCellOnly) {
                 startLocationLoop()
@@ -363,6 +409,8 @@ class ServiceGoRoot : Service() {
 
             // Tell the injected layer to stop, if present.
             stopMockLocationOnInjection()
+            // Tear down any active hide config.
+            stopHideOnInjection()
 
             // Tell the in-app native hook to wind down.
             if (nativeHookReady) {
@@ -441,6 +489,23 @@ class ServiceGoRoot : Service() {
                 Thread({ applyAllowPackages(pkgs) }, "ServiceGoRootAllowPkgs").start()
             }.onFailure { KailLog.e(this, TAG, "set_allow_packages: ${it.message}") }
 
+            CONTROL_SET_HIDE -> runCatching {
+                hideRootEnabled = intent.getBooleanExtra(EXTRA_HIDE_ROOT, false)
+                hideAppListEnabled = intent.getBooleanExtra(EXTRA_HIDE_APPLIST, false)
+                pendingHidePackages = intent.getStringArrayListExtra(EXTRA_HIDE_PACKAGES) ?: emptyList()
+                // Resolving binders + injecting target apps can block briefly.
+                Thread({ startHideOnInjection() }, "ServiceGoRootSetHide").start()
+            }.onFailure { KailLog.e(this, TAG, "set_hide: ${it.message}") }
+
+            CONTROL_STOP_HIDE -> runCatching {
+                hideRootEnabled = false
+                hideAppListEnabled = false
+                pendingHidePackages = emptyList()
+                stopHideOnInjection()
+                KailLog.i(this, TAG, "Hide stopped via control")
+                if (!isAnyMockActive()) stopSelf()
+            }.onFailure { KailLog.e(this, TAG, "stop_hide: ${it.message}") }
+
             CONTROL_SEEK -> {
                 val ratio = intent.getFloatExtra(EXTRA_SEEK_RATIO, 0f).coerceIn(0f, 1f)
                 mRouteEngine.seekToRatio(ratio)
@@ -515,6 +580,20 @@ class ServiceGoRoot : Service() {
         // disk so a future loader can pick them up via the JNI setters.
         val (writeOffset, convertOffset) = getOffsetsFromSystem()
 
+        // Drop the probed offsets where the system_server-side NativeStepHook
+        // (loaded by the inject) can read them. libkail_native_hook.so installs
+        // the Dobby hook on libsensorservice.so::convertToSensorEvent inside
+        // system_server using convert_to_sensor_event; send_objects is for
+        // libsensor.so (only present in app processes) so may be unused here.
+        runCatching {
+            val conf = "send_objects=$writeOffset\nconvert_to_sensor_event=$convertOffset\n"
+            val f = "/data/local/kail-lib/kail_sensor_offsets.txt"
+            ShellUtils.executeCommand("echo '$conf' > $f")
+            ShellUtils.executeCommand("chmod 644 $f")
+            ShellUtils.executeCommand("chcon u:object_r:system_file:s0 $f")
+            KailLog.i(this, TAG, "wrote sensor offsets: write=$writeOffset convert=$convertOffset")
+        }.onFailure { KailLog.e(this, TAG, "write sensor offsets: ${it.message}") }
+
         val ok = runCatching {
             NativeSensorHook.nativeSetWriteOffset(parseHexOffset(writeOffset))
             NativeSensorHook.nativeSetConvertOffset(parseHexOffset(convertOffset))
@@ -540,6 +619,28 @@ class ServiceGoRoot : Service() {
     }
 
     private fun applyStepSimulation() {
+        // Primary path — the FakeLocation step sensor mock via the
+        // service_mock_location binder (runs inside system_server, hooks
+        // libsensorservice's global sensor stream). setStepSpeed takes
+        // steps-per-second; the UI cadence is in steps-per-minute.
+        runCatching {
+            val svc = resolveMockLocService()
+            if (svc != null) {
+                if (stepEnabled) {
+                    svc.setStepSpeed(stepCadence / 60f)
+                    svc.startStepSensorMock()
+                    KailLog.i(this, TAG, "FakeLocation step mock started, spm=$stepCadence (sps=${stepCadence / 60f})")
+                } else {
+                    svc.stopStepSensorMock()
+                    KailLog.i(this, TAG, "FakeLocation step mock stopped")
+                }
+            }
+        }.onFailure { KailLog.e(this, TAG, "applyStepSimulation (binder): ${it.message}") }
+
+        // Secondary best-effort path — the in-app NativeSensorHook. Only does
+        // anything when the SO is loaded into the consuming process (Xposed/
+        // Zygisk); a no-op from the controller process. Kept for parity with
+        // ServiceGoXposed.
         if (!nativeHookReady) return
         runCatching {
             NativeSensorHook.nativeSetGaitParams(stepCadence, stepMode, stepScheme, stepEnabled)
@@ -551,7 +652,7 @@ class ServiceGoRoot : Service() {
                 NativeSensorHook.nativeSetRouteSimulation(false, stepCadence, stepMode)
                 NativeSensorHook.nativeSetMocking(0)
             }
-        }.onFailure { KailLog.e(this, TAG, "applyStepSimulation: ${it.message}") }
+        }.onFailure { KailLog.e(this, TAG, "applyStepSimulation (native): ${it.message}") }
     }
 
     // ------------------------------------------------------------------
@@ -623,6 +724,106 @@ class ServiceGoRoot : Service() {
             }
         }.onFailure { KailLog.e(this, TAG, "setAllowMockPackages(wifi): ${it.message}") }
         KailLog.i(this, TAG, "allowMockPackages applied: ${if (list.isEmpty()) "<all apps>" else list.joinToString()}")
+
+        // For per-app hooks (step-sensor spoofing via StepSensorClientHook, and
+        // the client-side location/cell mirrors) to install, each target app
+        // process must be app-hook injected. Server-side hooks already filter
+        // by caller, but the step hook lives entirely in the app process, so
+        // injection is required for step mocking to reach the target app.
+        if (list.isNotEmpty()) {
+            Thread({
+                for (pkg in list) {
+                    runCatching { RootDeployer.injectAppProcess(pkg) }
+                        .onFailure { KailLog.w(this, TAG, "inject $pkg: ${it.message}") }
+                }
+            }, "ServiceGoRootTargetInject").start()
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Root / app-list hiding bridge (service_hide_root)
+    //
+    // Drives the "Root与应用隐藏" screen. The FakeLocation injection layer
+    // registers an IHideRootManager under "service_hide_root"; the per-app
+    // RootHideHook / LAntiDetect (installed via AppProcessHook.applyHookToApp)
+    // gate entirely on this binder:
+    //   isHideRootEnabled()      -> master switch (refreshHideRootEnabled gates
+    //                               it on a usable license)
+    //   getHiddenPackages()      -> packages the hide applies to (scope "k")
+    //   isHideAppListEnabled()   -> also hide the installed-app list (scope "n")
+    //
+    // Hooks only install in a process AFTER it has been app-hook-injected, so
+    // we inject every selected package once the config is pushed.
+    // ------------------------------------------------------------------
+
+    private fun resolveHideRootService(): com.kail.location.inject.fakelocation.aidl.IHideRootManager? {
+        hideRootService?.let { return it }
+        repeat(10) {
+            val binder = runCatching {
+                ServiceManagerBridge.getService(ClassLoader.getSystemClassLoader(), "service_hide_root")
+            }.getOrNull()
+            if (binder != null) {
+                return runCatching {
+                    com.kail.location.inject.fakelocation.aidl.IHideRootManager.Stub.asInterface(binder)
+                }.getOrNull()?.also {
+                    hideRootService = it
+                    KailLog.i(this, TAG, "FakeLocation hide-root binder online")
+                }
+            }
+            runCatching { Thread.sleep(300) }
+        }
+        return null
+    }
+
+    /**
+     * Stage the inject (so service_hide_root exists), push the hide config,
+     * and inject every target app process so RootHideHook installs there.
+     */
+    private fun startHideOnInjection() {
+        runCatching { RootDeployer.ensureBaseline(this) }
+            .onFailure { KailLog.e(this, TAG, "RootDeployer.ensureBaseline (hide): ${it.message}") }
+
+        val svc = resolveHideRootService()
+        if (svc == null) {
+            KailLog.w(this, TAG, "service_hide_root binder not online yet")
+            return
+        }
+        val pkgs = ArrayList(pendingHidePackages)
+        runCatching {
+            // refreshHideRootEnabled flips the master switch on only when the
+            // license is usable; pair it with disableHideRoot when turning off.
+            if (hideRootEnabled && pkgs.isNotEmpty()) {
+                svc.setHiddenPackages(pkgs)
+                svc.setHideAppListEnabled(hideAppListEnabled)
+                svc.refreshHideRootEnabled()
+            } else {
+                svc.disableHideRoot()
+                svc.setHideAppListEnabled(false)
+                svc.setHiddenPackages(null)
+            }
+            KailLog.i(
+                this, TAG,
+                "hide config pushed: hideRoot=$hideRootEnabled hideAppList=$hideAppListEnabled pkgs=${pkgs.joinToString()}"
+            )
+        }.onFailure { KailLog.e(this, TAG, "push hide config: ${it.message}") }
+
+        // Hooks only fire in an app process after it has been app-hook-injected.
+        if (hideRootEnabled) {
+            for (pkg in pkgs) {
+                runCatching { RootDeployer.injectAppProcess(pkg) }
+                    .onFailure { KailLog.e(this, TAG, "inject $pkg (hide): ${it.message}") }
+            }
+        }
+    }
+
+    private fun stopHideOnInjection() {
+        runCatching {
+            resolveHideRootService()?.let {
+                it.disableHideRoot()
+                it.setHideAppListEnabled(false)
+                it.setHiddenPackages(null)
+            }
+        }.onFailure { KailLog.e(this, TAG, "stopHideOnInjection: ${it.message}") }
     }
 
     private fun startMockLocationOnInjection() {
@@ -699,6 +900,7 @@ class ServiceGoRoot : Service() {
         runCatching { mockLocService?.stopMockLocation() }
         runCatching { mockLocService?.setMockGpsStatus(false) }
         runCatching { mockLocService?.setMockCells(null) }
+        runCatching { mockLocService?.stopStepSensorMock() }
         // Clear any scoped block-list left over from cell-only mode so the next
         // normal location session isn't silently blocked.
         runCatching { mockLocService?.setSafeApps(null) }
@@ -732,6 +934,7 @@ class ServiceGoRoot : Service() {
         if (locationLoopStarted) return true
         if (pendingWifiList.isNotEmpty()) return true
         if (pendingCellList.isNotEmpty()) return true
+        if (hideRootEnabled && pendingHidePackages.isNotEmpty()) return true
         return false
     }
 

@@ -29,6 +29,8 @@
 #include <jni.h>
 #include <android/log.h>
 
+#include "kail_log.h"
+
 namespace fakeloc {
 
 static const char *kLogTag = "LINJECT.native";
@@ -250,12 +252,12 @@ inline JavaVM *getJavaVM() {
     handle = dlopen(nullptr, RTLD_NOW);   // resolve against the current image
     const char *err = dlerror();
     if (err)
-      __android_log_print(ANDROID_LOG_INFO, kLogTag, "failed to load %s: %s", kRuntimeLibs[i], err);
+      KLOGI(kLogTag, "failed to load %s: %s", kRuntimeLibs[i], err);
     if (handle)
-      __android_log_print(ANDROID_LOG_INFO, kLogTag, "Android runtime loaded from %s", kRuntimeLibs[i]);
+      KLOGI(kLogTag, "Android runtime loaded from %s", kRuntimeLibs[i]);
   }
   if (!handle) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag, "Failed to get jvm");
+    KLOGI(kLogTag, "Failed to get jvm");
     return nullptr;
   }
 
@@ -264,8 +266,7 @@ inline JavaVM *getJavaVM() {
   auto getCreated = (GetCreatedFn)dlsym(handle, "JNI_GetCreatedJavaVMs");
   const char *err = dlerror();
   if (err) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "dlsym(\"JNI_GetCreatedJavaVMs\") failed: %s", err);
+    KLOGI(kLogTag, "dlsym(\"JNI_GetCreatedJavaVMs\") failed: %s", err);
     return nullptr;
   }
 
@@ -273,10 +274,9 @@ inline JavaVM *getJavaVM() {
   jsize count = 0;
   getCreated(&vm, 1, &count);
   if (count <= 0)
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "get_created_java_vms returned %d jvms, jvm: %p", count, (void *)vm);
+    KLOGI(kLogTag, "get_created_java_vms returned %d jvms, jvm: %p", count, (void *)vm);
   else
-    __android_log_print(ANDROID_LOG_INFO, kLogTag, "found existing jvm");
+    KLOGI(kLogTag, "found existing jvm");
   dlclose(handle);
   return vm;
 }
@@ -285,16 +285,16 @@ inline JavaVM *getJavaVM() {
 inline JNIEnv *getJniEnvFromJvm(JavaVM *vm) {
   if (!vm)
     return nullptr;
-  __android_log_print(ANDROID_LOG_INFO, kLogTag, "jvm->GetEnv ...");
+  KLOGI(kLogTag, "jvm->GetEnv ...");
   JNIEnv *env = nullptr;
   jint err = vm->GetEnv((void **)&env, JNI_VERSION_1_6);
   if (err == JNI_OK) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag, "jvm->GetEnv() JNI_OK");
+    KLOGI(kLogTag, "jvm->GetEnv() JNI_OK");
   } else if (err == JNI_EDETACHED) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag, "JNI_EDETACHED == err");
+    KLOGI(kLogTag, "JNI_EDETACHED == err");
     vm->AttachCurrentThread(&env, nullptr);
   } else {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag, "jvm->GetEnv() failed");
+    KLOGI(kLogTag, "jvm->GetEnv() failed");
   }
   return env;
 }
@@ -332,11 +332,11 @@ inline jobject getGlobalContext(JNIEnv *env) {
 
 // ClassLoader.getSystemClassLoader()  (getSystemClassLoader)
 inline jobject getSystemClassLoader(JNIEnv *env) {
-  __android_log_print(ANDROID_LOG_INFO, kLogTag, "getSystemClassLoader is Executing...");
+  KLOGI(kLogTag, "getSystemClassLoader is Executing...");
   jclass cl = env->FindClass("java/lang/ClassLoader");
   jmethodID m = env->GetStaticMethodID(cl, "getSystemClassLoader", "()Ljava/lang/ClassLoader;");
   jobject loader = env->CallStaticObjectMethod(cl, m);
-  __android_log_print(ANDROID_LOG_INFO, kLogTag, "getSystemClassLoader is finished!!");
+  KLOGI(kLogTag, "getSystemClassLoader is finished!!");
   env->DeleteLocalRef(cl);
   return loader;
 }

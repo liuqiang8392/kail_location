@@ -10,18 +10,22 @@ public class LStepSensor {
     public static native void setSensorValues(int sensorType, int accuracy, float[] values);
 
     public static boolean loadAndHook(byte[] dexBytes, String targetProcessName) {
-        if (dexBytes != null && targetProcessName != null) {
-            try {
-                System.load("/data/kail-loc/libStepSensor.so");
-            } catch (Throwable th) {
-                th.printStackTrace();
-            }
-            try {
-                return doHook(dexBytes, targetProcessName) == 0;
-            } catch (Throwable th2) {
-                th2.printStackTrace();
-            }
+        // The kail rebrand authorises via host-package signature verification
+        // inside the native doHook (see libStepSensor.cpp), not the original
+        // DES license blob — so dexBytes / targetProcessName are unused and may
+        // be null. Always load the SO and run doHook; do NOT early-return on
+        // null params (that left libStepSensor.so unloaded, so setSensorValues
+        // had "No implementation found").
+        try {
+            System.load("/data/kail-loc/libStepSensor.so");
+        } catch (Throwable th) {
+            th.printStackTrace();
         }
-        return false;
+        try {
+            return doHook(dexBytes, targetProcessName) == 0;
+        } catch (Throwable th2) {
+            th2.printStackTrace();
+            return false;
+        }
     }
 }

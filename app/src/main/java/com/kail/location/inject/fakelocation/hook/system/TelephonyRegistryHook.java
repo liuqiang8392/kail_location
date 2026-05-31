@@ -1216,6 +1216,7 @@ public class TelephonyRegistryHook {
     }
 
     public static void log(Object... objArr) {
+        com.kail.location.inject.utils.InjectLog.log("TelephonyRegistryHook", objArr);
     }
 
     public static void notifyCellInfo(Object obj, List<CellInfo> list) {

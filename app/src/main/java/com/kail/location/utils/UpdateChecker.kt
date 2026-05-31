@@ -11,6 +11,7 @@ import java.io.IOException
  * 从 GitHub 检查应用更新的工具。
  */
 object UpdateChecker {
+    private const val TAG = "UpdateChecker"
     private const val GITHUB_API_URL = "https://api.github.com/repos/noellegazelle6/kail_location/releases/latest"
 
     /**
@@ -25,14 +26,17 @@ object UpdateChecker {
             .url(GITHUB_API_URL)
             .build()
 
+        KailLog.i(context, TAG, "check: requesting latest release")
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
+                KailLog.w(context, TAG, "check: network failure: ${e.message}")
                 callback(null, e.message)
             }
 
             override fun onResponse(call: Call, response: Response) {
                 val res = response.body?.string()
                 if (res == null) {
+                    KailLog.w(context, TAG, "check: empty response (http=${response.code})")
                     callback(null, "Empty response")
                     return
                 }
@@ -40,6 +44,7 @@ object UpdateChecker {
                 try {
                     val jsonObject = JSONObject(res)
                     if (!jsonObject.has("tag_name")) {
+                         KailLog.w(context, TAG, "check: no tag_name in response")
                          callback(null, "No tag_name in response")
                          return
                     }
@@ -64,6 +69,7 @@ object UpdateChecker {
                             0
                         }
 
+                        KailLog.i(context, TAG, "check: latest=$tagName($versionNew) local=$localVersionName($versionOld)")
                         if (versionNew > versionOld) {
                             callback(
                                 UpdateInfo(
@@ -79,10 +85,11 @@ object UpdateChecker {
                             callback(null, null) // Success but no update
                         }
                     } else {
+                        KailLog.w(context, TAG, "check: no assets in latest release")
                         callback(null, "No assets found")
                     }
                 } catch (e: JSONException) {
-                    e.printStackTrace()
+                    KailLog.e(context, TAG, "check: failed to parse release JSON", e)
                     callback(null, e.message)
                 }
             }

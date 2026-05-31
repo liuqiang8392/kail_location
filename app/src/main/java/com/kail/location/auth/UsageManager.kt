@@ -2,10 +2,12 @@ package com.kail.location.auth
 
 import android.content.Context
 import com.kail.location.network.RuoYiClient
+import com.kail.location.utils.KailLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object UsageManager {
+    private const val TAG = "UsageManager"
 
     fun init(context: Context) {}
 
@@ -14,6 +16,7 @@ object UsageManager {
      */
     suspend fun canStartSimulation(context: Context): Boolean {
         if (!AuthManager.isLoggedIn) {
+            KailLog.i(context, TAG, "canStartSimulation=false: not logged in")
             withContext(Dispatchers.Main) {
                 android.widget.Toast.makeText(context, "请先登录后再使用模拟功能", android.widget.Toast.LENGTH_SHORT).show()
             }
@@ -21,6 +24,7 @@ object UsageManager {
         }
 
         if (AuthManager.isSubscribed) {
+            KailLog.i(context, TAG, "canStartSimulation=true: subscribed")
             return true
         }
 
@@ -31,6 +35,7 @@ object UsageManager {
 
         return if (result.isSuccess) {
             val remaining = result.getOrThrow()
+            KailLog.i(context, TAG, "canStartSimulation: remaining free count=$remaining")
             if (remaining <= 0) {
                 withContext(Dispatchers.Main) {
                     android.widget.Toast.makeText(context, "今日免费模拟次数已用完，订阅后可无限使用", android.widget.Toast.LENGTH_SHORT).show()
@@ -40,6 +45,7 @@ object UsageManager {
                 true
             }
         } else {
+            KailLog.w(context, TAG, "canStartSimulation: check failed: ${result.exceptionOrNull()?.message}")
             withContext(Dispatchers.Main) {
                 android.widget.Toast.makeText(context, "今日免费模拟次数已用完，订阅后可无限使用", android.widget.Toast.LENGTH_SHORT).show()
             }
@@ -60,8 +66,10 @@ object UsageManager {
         }
 
         return if (result.isSuccess) {
+            KailLog.i(context, TAG, "consumeSimulation: consumed one count")
             true
         } else {
+            KailLog.w(context, TAG, "consumeSimulation failed: ${result.exceptionOrNull()?.message}")
             withContext(Dispatchers.Main) {
                 android.widget.Toast.makeText(context, "模拟次数已用完", android.widget.Toast.LENGTH_SHORT).show()
             }

@@ -235,6 +235,31 @@
     <string name="setting_clear_log_cache_failed">日誌快取清除失敗</string>
     <string name="setting_map_zoom">懸浮窗地圖縮放比例</string>
     <string name="setting_map_zoom_summary">範圍 10-21，數值越大地圖越詳細</string>
+
+    <!-- 資料匯出 / 匯入 -->
+    <string name="setting_group_data_transfer">資料備份</string>
+    <string name="data_transfer_group_general">通用（所有模式）</string>
+    <string name="setting_export_data">匯出資料</string>
+    <string name="setting_export_data_summary">將所選選單的設定匯出為 .bak 備份檔</string>
+    <string name="setting_import_data">匯入資料</string>
+    <string name="setting_import_data_summary">從 .bak 備份檔中選擇性還原選單設定</string>
+    <string name="data_transfer_export_title">匯出資料</string>
+    <string name="data_transfer_import_title">匯入資料</string>
+    <string name="data_transfer_select_categories">選擇要匯出的資料</string>
+    <string name="data_transfer_select_import_categories">選擇要匯入的資料</string>
+    <string name="data_transfer_category_count">%1$s（%2$d 項）</string>
+    <string name="data_transfer_category_empty">%1$s（無資料）</string>
+    <string name="data_transfer_filename_label">備份檔名稱</string>
+    <string name="data_transfer_export_button">匯出</string>
+    <string name="data_transfer_import_button">匯入</string>
+    <string name="data_transfer_export_success">資料匯出成功</string>
+    <string name="data_transfer_export_failed">資料匯出失敗</string>
+    <string name="data_transfer_import_success">已匯入 %1$d 項選單資料，重新啟動應用程式後生效</string>
+    <string name="data_transfer_import_failed">資料匯入失敗</string>
+    <string name="data_transfer_invalid_file">無效的備份檔</string>
+    <string name="data_transfer_none_selected">請至少選擇一項</string>
+    <string name="data_transfer_default_filename">kail_location_backup</string>
+
     <string name="setting_current_version">目前版本</string>
     <string name="setting_not_set">未設定</string>
     <string name="setting_ok">確定</string>
@@ -286,6 +311,7 @@
     <string name="drawer_nfc_sim">NFC 模擬</string>
     <string name="drawer_run_mode">運行模式</string>
     <string name="drawer_sandbox">沙盒引擎</string>
+    <string name="drawer_xposed_settings">Xposed 設定</string>
 
     <string name="sponsor_copied">已複製</string>
     <string name="sponsor_copy_address">複製地址</string>

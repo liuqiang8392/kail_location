@@ -12,11 +12,15 @@
 #include <cmath>
 
 #include "sensor_simulator.h"
+#include "kail_log.h"
 
 #define LOG_TAG "KailNativeSensor"
 #define ALOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define ALOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+// 统一日志标签（带 [file:line#func] 定位信息，见 kail_log.h）。
+static const char *kHookTag = "NativeSensorHook.native";
 
 #define SENSOR_TYPE_ACCELEROMETER 1
 #define SENSOR_TYPE_LINEAR_ACCELERATION 10
@@ -210,6 +214,7 @@ static void install_send_objects_hook() {
     
     FILE* fp = fopen("/proc/self/maps", "r");
     if (!fp) {
+        KLOGE(kHookTag, "install_send_objects_hook: cannot open /proc/self/maps");
         return;
     }
     
@@ -225,10 +230,12 @@ static void install_send_objects_hook() {
     fclose(fp);
     
     if (!base) {
+        KLOGW(kHookTag, "install_send_objects_hook: libsensor.so not mapped in this process");
         return;
     }
     
     if (send_objects_offset == 0) {
+        KLOGW(kHookTag, "install_send_objects_hook: send_objects_offset is 0, skip");
         return;
     }
     
@@ -238,6 +245,10 @@ static void install_send_objects_hook() {
     
     if (ret == 0) {
         send_objects_hook_installed = true;
+        KLOGI(kHookTag, "install_send_objects_hook: hooked libsensor.so send_objects at %p (base=%p off=0x%llx)",
+              addr, base, (unsigned long long)send_objects_offset);
+    } else {
+        KLOGE(kHookTag, "install_send_objects_hook: DobbyHook failed rc=%d at %p", ret, addr);
     }
 }
 
@@ -246,6 +257,7 @@ static void install_convert_to_sensor_event_hook() {
     
     FILE* fp = fopen("/proc/self/maps", "r");
     if (!fp) {
+        KLOGE(kHookTag, "install_convert_to_sensor_event_hook: cannot open /proc/self/maps");
         return;
     }
     
@@ -261,10 +273,12 @@ static void install_convert_to_sensor_event_hook() {
     fclose(fp);
     
     if (!base) {
+        KLOGW(kHookTag, "install_convert_to_sensor_event_hook: libsensorservice.so not mapped in this process");
         return;
     }
     
     if (convert_to_sensor_event_offset == 0) {
+        KLOGW(kHookTag, "install_convert_to_sensor_event_hook: offset is 0, skip");
         return;
     }
     
@@ -274,10 +288,103 @@ static void install_convert_to_sensor_event_hook() {
     
     if (ret == 0) {
         convert_to_sensor_event_hook_installed = true;
+        KLOGI(kHookTag, "install_convert_to_sensor_event_hook: hooked libsensorservice.so at %p (base=%p off=0x%llx)",
+              addr, base, (unsigned long long)convert_to_sensor_event_offset);
+    } else {
+        KLOGE(kHookTag, "install_convert_to_sensor_event_hook: DobbyHook failed rc=%d at %p", ret, addr);
     }
 }
 
 extern "C" {
+
+// ============================================================
+// Inject-package JNI functions (com.kail.location.inject.utils.NativeStepHook)
+//
+// These are driven from INSIDE system_server by the FakeLocation inject
+// (InjectDex), which loads this .so by absolute path. system_server maps
+// libsensorservice.so, so hooked_convert_to_sensor_event installs there and
+// synthesises step-detector/counter events into the global sensor stream.
+// The class com.kail.location.inject.utils.NativeStepHook lives in the slim
+// inject dex, so its JNI names must be bound here.
+// ============================================================
+
+JNIEXPORT void JNICALL
+Java_com_kail_location_inject_utils_NativeStepHook_nativeSetWriteOffset(
+    JNIEnv* env, jclass clazz, jlong offset) {
+    send_objects_offset = (uint64_t)offset;
+}
+
+JNIEXPORT void JNICALL
+Java_com_kail_location_inject_utils_NativeStepHook_nativeSetConvertOffset(
+    JNIEnv* env, jclass clazz, jlong offset) {
+    convert_to_sensor_event_offset = (uint64_t)offset;
+}
+
+JNIEXPORT void JNICALL
+Java_com_kail_location_inject_utils_NativeStepHook_nativeSetRouteSimulation(
+    JNIEnv* env, jclass clazz, jboolean active, jfloat spm, jint mode) {
+    bool isActive = (active != JNI_FALSE);
+    if (isActive) {
+        current_spm = spm;
+        setRouteSimulationActive(true);
+        gait::SensorSimulator::Get().UpdateParams(spm, mode, 0, true);
+        isMocking = 1;
+        step_event_counter = 0;
+    } else {
+        setRouteSimulationActive(false);
+        isMocking = 0;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_kail_location_inject_utils_NativeStepHook_nativeSetGaitParams(
+    JNIEnv* env, jclass clazz, jfloat spm, jint mode, jint scheme, jboolean enable) {
+    gait::SensorSimulator::Get().UpdateParams(spm, mode, scheme, enable);
+}
+
+JNIEXPORT void JNICALL
+Java_com_kail_location_inject_utils_NativeStepHook_nativeSetMocking(
+    JNIEnv* env, jclass clazz, jint mocking) {
+    isMocking = (int)mocking;
+}
+
+JNIEXPORT void JNICALL
+Java_com_kail_location_inject_utils_NativeStepHook_nativeSetStepSimEnabled(
+    JNIEnv* env, jclass clazz, jboolean enabled) {
+    step_sim_enabled = (enabled != JNI_FALSE) ? 1 : 0;
+}
+
+JNIEXPORT void JNICALL
+Java_com_kail_location_inject_utils_NativeStepHook_nativeReset(
+    JNIEnv* env, jclass clazz) {
+    step_sim_enabled = 0;
+    route_simulation_active = false;
+    isMocking = 0;
+    step_event_counter = 0;
+    stepdetectorTrigger = 0;
+    stepcounterTrigger = 0;
+    mSensorHandleStepDetector = -1;
+    mSensorHandleStepCounter = -1;
+    current_spm = 120.0f;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_kail_location_inject_utils_NativeStepHook_nativeInitHook(
+    JNIEnv* env, jclass clazz) {
+    gait::SensorSimulator::Get().Init();
+    if (send_objects_offset != 0) {
+        install_send_objects_hook();
+    }
+    if (convert_to_sensor_event_offset != 0) {
+        install_convert_to_sensor_event_hook();
+    }
+    gait::SensorSimulator::Get().ReloadConfig();
+    // Report whether at least one hook is installed so Java can log status.
+    bool ok = send_objects_hook_installed || convert_to_sensor_event_hook_installed;
+    KLOGI(kHookTag, "NativeStepHook.nativeInitHook: sendObjects=%d convert=%d -> ok=%d",
+          send_objects_hook_installed, convert_to_sensor_event_hook_installed, ok);
+    return ok ? JNI_TRUE : JNI_FALSE;
+}
 
 // ============================================================
 // Root module JNI functions (com.kail.location.root.NativeSensorHook)
@@ -321,6 +428,7 @@ Java_com_kail_location_root_NativeSensorHook_nativeSetRouteSimulation(
         setRouteSimulationActive(false);
         isMocking = 0;
     }
+    KLOGI(kHookTag, "nativeSetRouteSimulation: active=%d spm=%.2f mode=%d", isActive, spm, mode);
 }
 
 JNIEXPORT void JNICALL
@@ -402,6 +510,8 @@ Java_com_kail_location_root_NativeSensorHook_nativeInitHook(
     }
     
     gait::SensorSimulator::Get().ReloadConfig();
+    KLOGI(kHookTag, "root.NativeSensorHook.nativeInitHook: sendObjects=%d convert=%d",
+          send_objects_hook_installed, convert_to_sensor_event_hook_installed);
 }
 
 // ============================================================

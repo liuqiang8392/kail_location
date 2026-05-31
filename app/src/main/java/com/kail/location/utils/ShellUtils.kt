@@ -4,6 +4,8 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 
 object ShellUtils {
+    private const val TAG = "ShellUtils"
+
     fun hasRoot(): Boolean {
         var process: Process? = null
         try {
@@ -15,8 +17,11 @@ object ShellUtils {
 
             val output = BufferedReader(InputStreamReader(process.inputStream)).use { it.readText() }
             process.waitFor()
-            return output.contains("uid=0") || process.exitValue() == 0
+            val rooted = output.contains("uid=0") || process.exitValue() == 0
+            KailLog.d(null, TAG, "hasRoot=$rooted")
+            return rooted
         } catch (e: Exception) {
+            KailLog.w(null, TAG, "hasRoot: su unavailable: ${e.message}")
             return false
         } finally {
             process?.destroy()
@@ -35,9 +40,14 @@ object ShellUtils {
             val stdout = BufferedReader(InputStreamReader(process.inputStream)).use { it.readText() }
             val stderr = BufferedReader(InputStreamReader(process.errorStream)).use { it.readText() }
             process.waitFor()
+            if (stderr.isNotBlank()) {
+                KailLog.w(null, TAG, "executeCommand stderr [`$command`]: ${stderr.trim()}")
+            } else {
+                KailLog.d(null, TAG, "executeCommand [`$command`] ok (${stdout.length} bytes out)")
+            }
             return if (stdout.isNotEmpty()) stdout else stderr
         } catch (e: Exception) {
-            e.printStackTrace()
+            KailLog.e(null, TAG, "executeCommand failed [`$command`]", e)
             return ""
         } finally {
             process?.destroy()
@@ -56,9 +66,12 @@ object ShellUtils {
             val stdout = process.inputStream.use { it.readBytes() }
             val stderr = process.errorStream.use { it.readBytes() }
             process.waitFor()
+            if (stdout.isEmpty() && stderr.isNotEmpty()) {
+                KailLog.w(null, TAG, "executeCommandToBytes stderr [`$command`]: ${String(stderr).trim()}")
+            }
             return if (stdout.isNotEmpty()) stdout else stderr
         } catch (e: Exception) {
-            e.printStackTrace()
+            KailLog.e(null, TAG, "executeCommandToBytes failed [`$command`]", e)
             return ByteArray(0)
         } finally {
             process?.destroy()

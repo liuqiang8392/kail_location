@@ -1207,6 +1207,7 @@ public class ClientMockHook {
     }
 
     private static void log(Object... objArr) {
+        com.kail.location.inject.utils.InjectLog.log("ClientMockHook", objArr);
     }
 
     public static void onCellInfoChanged(Object obj, List<CellInfo> list) {

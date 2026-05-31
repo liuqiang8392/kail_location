@@ -1,8 +1,8 @@
 package com.kail.location.network
 
 import android.util.Base64
-import android.util.Log
 import com.kail.location.models.WifiInfo
+import com.kail.location.utils.KailLog
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -41,7 +41,7 @@ object WigleClient {
         radiusKm: Double = 0.3
     ): List<WifiInfo> {
         if (apiKey.isBlank()) {
-            Log.w(TAG, "API key is blank")
+            KailLog.w(null, TAG, "API key is blank")
             return emptyList()
         }
 
@@ -66,16 +66,16 @@ object WigleClient {
                 .get()
                 .build()
             val response = client.newCall(request).execute()
-            Log.d(TAG, "Response code: ${response.code}")
+            KailLog.d(null, TAG, "Response code: ${response.code}")
             if (!response.isSuccessful) {
-                Log.w(TAG, "WiGLE request failed: ${response.code}, body=${response.body?.string()}")
+                KailLog.w(null, TAG, "WiGLE request failed: ${response.code}, body=${response.body?.string()}")
                 return emptyList()
             }
             val body = response.body?.string() ?: return emptyList()
-            Log.d(TAG, "Response body: ${body.take(500)}")
+            KailLog.d(null, TAG, "Response body: ${body.take(500)}")
             parseResponse(body)
         } catch (e: Exception) {
-            Log.e(TAG, "WiGLE fetch error: ${e.javaClass.simpleName}: ${e.message}")
+            KailLog.e(null, TAG, "WiGLE fetch error: ${e.javaClass.simpleName}: ${e.message}")
             emptyList()
         }
     }
@@ -85,11 +85,11 @@ object WigleClient {
         try {
             val root = JSONObject(json)
             if (!root.has("results")) {
-                Log.w(TAG, "No 'results' field. Keys: ${root.keys().asSequence().toList()}")
+                KailLog.w(null, TAG, "No 'results' field. Keys: ${root.keys().asSequence().toList()}")
                 return emptyList()
             }
             val array = root.getJSONArray("results")
-            Log.d(TAG, "Parsed ${array.length()} results")
+            KailLog.d(null, TAG, "Parsed ${array.length()} results")
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 val ssid = obj.optString("ssid", "")
@@ -112,9 +112,9 @@ object WigleClient {
                     )
                 )
             }
-            Log.d(TAG, "Filtered ${results.size} wifi entries")
+            KailLog.d(null, TAG, "Filtered ${results.size} wifi entries")
         } catch (e: Exception) {
-            Log.e(TAG, "Parse error", e)
+            KailLog.e(null, TAG, "Parse error", e)
         }
         return results
     }

@@ -1,8 +1,24 @@
 package com.kail.location.root
 
+import com.kail.location.utils.KailLog
+
 object NativeSensorHook {
+    private const val TAG = "NativeSensorHook"
+
+    /** native 库是否成功加载。加载失败时所有 external 调用都会抛 UnsatisfiedLinkError。 */
+    @Volatile
+    var libraryLoaded = false
+        private set
+
     init {
-        System.loadLibrary("kail_native_hook")
+        try {
+            System.loadLibrary("kail_native_hook")
+            libraryLoaded = true
+            KailLog.i(null, TAG, "libkail_native_hook.so loaded")
+        } catch (t: Throwable) {
+            libraryLoaded = false
+            KailLog.e(null, TAG, "failed to load libkail_native_hook.so", t)
+        }
     }
 
     external fun nativeSetWriteOffset(offset: Long)

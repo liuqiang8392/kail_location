@@ -40,6 +40,7 @@
 #include <android/log.h>
 
 #include "fakeloc_common.h"
+#include "kail_log.h"
 
 static const char *kTag = "LHooker.Native";
 
@@ -138,7 +139,7 @@ static void *genTrampoline(uintptr_t method) {
     void *page = mmap(nullptr, 0x1000, PROT_READ | PROT_WRITE | PROT_EXEC,
                       MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     if (page == MAP_FAILED) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "mmap failed, errno = %s", strerror(errno));
+      KLOGE(kTag, "mmap failed, errno = %s", strerror(errno));
       gPoolCur = 0;
       return nullptr;
     }
@@ -206,8 +207,7 @@ static uintptr_t artMethodFromReflected(JNIEnv *env, jobject method) {
 static int installHook(uintptr_t target, uintptr_t hook) {
   void *tramp = genTrampoline(hook);
   if (!tramp) {
-    __android_log_print(ANDROID_LOG_ERROR, kTag,
-                        "failed to allocate space for trampoline of target method");
+    KLOGE(kTag, "failed to allocate space for trampoline of target method");
     return 1;
   }
 
@@ -244,7 +244,7 @@ Java_com_kail_location_lib_lhooker_LHooker_init(JNIEnv *env, jobject, jint sdkIn
   }
 
   gSdkInt = sdkInt;
-  __android_log_print(ANDROID_LOG_INFO, kTag, "SDK %d", sdkInt);
+  KLOGI(kTag, "SDK %d", sdkInt);
 
   // Common access-flag switches.
   gAccessFlag4ByteOffset = (sdkInt >= 24);
@@ -280,7 +280,7 @@ Java_com_kail_location_lib_lhooker_LHooker_init(JNIEnv *env, jobject, jint sdkIn
       break;
     }
     default:
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "Unsupported SDK %d", sdkInt);
+      KLOGE(kTag, "Unsupported SDK %d", sdkInt);
       break;
   }
 #else
@@ -311,7 +311,7 @@ Java_com_kail_location_lib_lhooker_LHooker_init(JNIEnv *env, jobject, jint sdkIn
       break;
     }
     default:
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "Unsupported SDK %d", sdkInt);
+      KLOGE(kTag, "Unsupported SDK %d", sdkInt);
       break;
   }
 #endif
@@ -398,7 +398,7 @@ Java_com_kail_location_lib_lhooker_LHooker_hookMethodNative(
   }
   rc += installHook(targetMethod, hookMethod);
 
-  __android_log_print(ANDROID_LOG_INFO, kTag, "Hook method done.");
+  KLOGI(kTag, "Hook method done.");
   if (rc != 0)
     return JNI_FALSE;
 

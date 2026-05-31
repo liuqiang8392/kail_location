@@ -29,6 +29,8 @@
 
 #include <android/log.h>
 
+#include "kail_log.h"
+
 namespace elfhook {
 
 static const char *kTag = "Hook.native";
@@ -105,12 +107,12 @@ class ElfReader {
       }
     }
     if (!found) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "failed to get segment base address");
+      KLOGE(kTag, "failed to get segment base address");
       return -1;
     }
 
     if (parseDynamic() != 0) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "failed to parse dynamic segment");
+      KLOGE(kTag, "failed to parse dynamic segment");
       return -1;
     }
     return 0;
@@ -122,7 +124,7 @@ class ElfReader {
     ElfSym *sym = nullptr;
     unsigned symIndex = 0;
     if (findSymbolByName(symbol, &sym, &symIndex) != 0) {
-      __android_log_print(ANDROID_LOG_DEBUG, kTag, "hook %s failure in %s", symbol, name_);
+      KLOGD(kTag, "hook %s failure in %s", symbol, name_);
       return -1;
     }
 
@@ -156,10 +158,10 @@ class ElfReader {
     }
 
     if (patched) {
-      __android_log_print(ANDROID_LOG_DEBUG, kTag, "hook %s successfully in %s", symbol, name_);
+      KLOGD(kTag, "hook %s successfully in %s", symbol, name_);
       return 0;
     }
-    __android_log_print(ANDROID_LOG_DEBUG, kTag, "hook %s failure in %s", symbol, name_);
+    KLOGD(kTag, "hook %s failure in %s", symbol, name_);
     return -1;
   }
 
@@ -167,23 +169,23 @@ class ElfReader {
   int verifyHeader() {
     const ElfEhdr *e = reinterpret_cast<ElfEhdr *>(base_);
     if (memcmp(e->e_ident, ELFMAG, SELFMAG) != 0) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "wrong elf format for magic");
+      KLOGE(kTag, "wrong elf format for magic");
       return -1;
     }
     if (e->e_ident[EI_CLASS] != kElfClass) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "wrong elf bit format");
+      KLOGE(kTag, "wrong elf bit format");
       return -1;
     }
     if (e->e_ident[EI_DATA] != ELFDATA2LSB) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "wrong elf format for not little-endian");
+      KLOGE(kTag, "wrong elf format for not little-endian");
       return -1;
     }
     if (e->e_type != ET_DYN) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "wrong elf format for e_type");
+      KLOGE(kTag, "wrong elf format for e_type");
       return -1;
     }
     if (e->e_machine != kElfMachine) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "wrong elf format for e_machine");
+      KLOGE(kTag, "wrong elf format for e_machine");
       return -1;
     }
     return 0;
@@ -223,7 +225,7 @@ class ElfReader {
           break;
         case DT_REL:
         case DT_RELSZ:
-          __android_log_print(ANDROID_LOG_ERROR, kTag, "unsupported DT_REL in %s", name_);
+          KLOGE(kTag, "unsupported DT_REL in %s", name_);
           return -1;
 #else
         case DT_REL:
@@ -233,23 +235,21 @@ class ElfReader {
           reloCount_ = dyn->d_un.d_val / sizeof(ElfRelo);
           break;
         case DT_RELA:
-          __android_log_print(ANDROID_LOG_ERROR, kTag, "unsupported DT_RELA in %s", name_);
+          KLOGE(kTag, "unsupported DT_RELA in %s", name_);
           return -1;
         case DT_RELASZ:
-          __android_log_print(ANDROID_LOG_ERROR, kTag, "unsupported DT_RELASZ in %s", name_);
+          KLOGE(kTag, "unsupported DT_RELASZ in %s", name_);
           return -1;
 #endif
         case DT_PLTREL:
 #if defined(__LP64__)
           if (dyn->d_un.d_val != DT_RELA) {
-            __android_log_print(ANDROID_LOG_ERROR, kTag,
-                                "unsupported DT_PLTREL in %s, expected DT_RELA", name_);
+            KLOGE(kTag, "unsupported DT_PLTREL in %s, expected DT_RELA", name_);
             return -1;
           }
 #else
           if (dyn->d_un.d_val != DT_REL) {
-            __android_log_print(ANDROID_LOG_ERROR, kTag,
-                                "unsupported DT_PLTREL in %s, expected DT_REL", name_);
+            KLOGE(kTag, "unsupported DT_PLTREL in %s, expected DT_REL", name_);
             return -1;
           }
 #endif
@@ -272,8 +272,7 @@ class ElfReader {
           gnuBucket_    = reinterpret_cast<const uint32_t *>(gnuBloom_ + gnuMaskwords_);
           gnuChain_     = gnuBucket_ + gnuNbucket_ - gnuSymoffset_;
           if (gnuMaskwords_ & (gnuMaskwords_ - 1)) {
-            __android_log_print(ANDROID_LOG_ERROR, kTag,
-                                "invalid maskwords for gnu_hash in %s", name_);
+            KLOGE(kTag, "invalid maskwords for gnu_hash in %s", name_);
             return -1;
           }
           gnuMaskwords_ -= 1;
@@ -286,7 +285,7 @@ class ElfReader {
     }
 
     if (!strtab_ || !symtab_) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "no DT_STRTAB or DT_SYMTAB found in %s", name_);
+      KLOGE(kTag, "no DT_STRTAB or DT_SYMTAB found in %s", name_);
       return -1;
     }
     return 0;
@@ -324,8 +323,7 @@ class ElfReader {
         return 0;
       }
     }
-    __android_log_print(ANDROID_LOG_ERROR, kTag,
-                        "not found %s in %s before gnu symbol index %u", name, name_, gnuSymoffset_);
+    KLOGE(kTag, "not found %s in %s before gnu symbol index %u", name, name_, gnuSymoffset_);
     return -1;
   }
 
@@ -338,15 +336,13 @@ class ElfReader {
     *out = nullptr;
     *outIndex = 0;
     if ((word & mask) != mask) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag,
-                          "gnuLookup: not found symbol %s in %s", name, name_);
+      KLOGE(kTag, "gnuLookup: not found symbol %s in %s", name, name_);
       return -1;
     }
 
     uint32_t n = gnuBucket_[hash % gnuNbucket_];
     if (n == 0) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag,
-                          "gnuLookup: not found symbol %s in %s", name, name_);
+      KLOGE(kTag, "gnuLookup: not found symbol %s in %s", name, name_);
       return -1;
     }
 
@@ -360,8 +356,7 @@ class ElfReader {
       }
     } while ((gnuChain_[n++] & 1) == 0);
 
-    __android_log_print(ANDROID_LOG_ERROR, kTag,
-                        "gnuLookup: not found symbol %s in %s", name, name_);
+    KLOGE(kTag, "gnuLookup: not found symbol %s in %s", name, name_);
     return -1;
   }
 
@@ -381,7 +376,7 @@ class ElfReader {
 
   int hookInternally(void **gotEntry, void *replacement, void **original) {
     if (*gotEntry == replacement) {
-      __android_log_print(ANDROID_LOG_DEBUG, kTag, "already been hooked");
+      KLOGD(kTag, "already been hooked");
       return 0;
     }
 
@@ -397,8 +392,7 @@ class ElfReader {
       }
     }
     if (!seg) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag,
-                          "failed to find segment for address %p in %s", gotEntry, name_);
+      KLOGE(kTag, "failed to find segment for address %p in %s", gotEntry, name_);
       return -1;
     }
 
@@ -407,7 +401,7 @@ class ElfReader {
     int prot = PROT_WRITE | ((seg->p_flags >> 2) & 1);
     void *page = reinterpret_cast<void *>(addr & kPageMask);
     if (mprotect(page, 0x1000, prot) != 0) {
-      __android_log_print(ANDROID_LOG_ERROR, kTag, "failed to mprotect %p in %s", page, name_);
+      KLOGE(kTag, "failed to mprotect %p in %s", page, name_);
       return -1;
     }
 

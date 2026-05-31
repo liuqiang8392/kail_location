@@ -1,7 +1,6 @@
 package com.kail.location.inject.utils;
 
 import android.os.Build;
-import android.util.Log;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -22,7 +21,7 @@ public class HiddenApiBypass {
             setHiddenApiExemptionsMethod = (Method) classGetDeclaredMethod.invoke(cls, "setHiddenApiExemptions", new Class[]{String[].class});
             vmRuntime = ((Method) classGetDeclaredMethod.invoke(vmRuntimeClass, "getRuntime", null)).invoke(null, new Object[0]);
         } catch (Exception e) {
-            Log.e("ReflectionUtils", "error get methods", e);
+            InjectLog.e("HiddenApiBypass", "static init failed: error getting VMRuntime methods", e);
         }
     }
 

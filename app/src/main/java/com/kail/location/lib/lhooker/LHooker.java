@@ -1,7 +1,6 @@
 package com.kail.location.lib.lhooker;
 
 import android.os.Build;
-import android.util.Log;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
@@ -71,7 +70,7 @@ public class LHooker {
             checkHookSignature(targetMember, backupMethod, "Original", "Backup");
         }
         if (initializeVisibleHooking() != 0) {
-            Log.e("LHooker", "initClass failed");
+            com.kail.location.inject.utils.InjectLog.e("LHooker", "hookMethod: initializeVisibleHooking failed for " + targetMember);
         }
         if (targetMember instanceof Method) {
             ((Method) targetMember).setAccessible(true);

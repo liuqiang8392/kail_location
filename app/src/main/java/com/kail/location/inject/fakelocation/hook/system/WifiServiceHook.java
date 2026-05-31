@@ -1234,6 +1234,7 @@ public class WifiServiceHook {
     }
 
     public static void log(Object... objArr) {
+        com.kail.location.inject.utils.InjectLog.log("WifiServiceHook", objArr);
     }
 
     private static WifiInfo mock_getConnectionInfo() {

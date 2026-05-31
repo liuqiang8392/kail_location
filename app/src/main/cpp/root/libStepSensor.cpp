@@ -27,8 +27,12 @@
 
 #include "elf_hooker.h"
 #include "fakeloc_common.h"
+#include "kail_log.h"
 
 using namespace elfhook;
+
+// 本库统一日志标签。
+static const char *kStepTag = "StepSensor.native";
 
 // Sensor type constants used by the framework.
 static const int SENSOR_TYPE_ACCELEROMETER = 1;
@@ -54,7 +58,17 @@ static int  gStepDetectorTrig = 0;   // stepdetectorTrigger
 static int  gStepCounterTrig  = 0;   // stepcounterTrigger
 
 // Saved originals of the hooked functions.
-static int64_t (*gOrigSensorEventQueueWrite)(void *, void *, void *, size_t) = nullptr;
+//
+// IMPORTANT: SensorEventQueue::write is reconstructed as a 3-register function
+// (this, events, count) to match the decompiled original exactly. The Hex-Rays
+// output `new_SensorEventQueue_write(a1, a2, a3)` treats a2 as the events
+// pointer (`a2 + 24` is the first event's data, type read at `a2 + 8`) and a3
+// as the element count (`if (... && a3)` guard, `v4 = a3` loop counter). An
+// earlier rebuild added a spurious 4th `bitTube` parameter, which shifted
+// events into x2 and count into the undefined x3 — the loop then walked a
+// garbage pointer/count and crashed SensorService (SIGSEGV @0xc inside
+// libStepSensor.so). Keep this at 3 args.
+static int64_t (*gOrigSensorEventQueueWrite)(void *, void *, size_t) = nullptr;
 static int64_t (*gOrigConvertToSensorEvent)(void *, void *) = nullptr;
 
 // sensors_event_t layout used by the framework (104 bytes per event on arm64):
@@ -77,9 +91,10 @@ static bool vecIsSet(const float v[3]) {
 // ---------------------------------------------------------------------------
 // new_SensorEventQueue_write  (sub_3040)
 //   Rewrite the payload of each outgoing sensor event with the mock values.
+//   3-arg layout: self (x0), events (x1), count (x2) — matches the original.
 // ---------------------------------------------------------------------------
-static int64_t new_SensorEventQueue_write(void *self, void *bitTube, void *events, size_t count) {
-  if (gMocking && gAuthorized && events) {
+static int64_t new_SensorEventQueue_write(void *self, void *events, size_t count) {
+  if (gMocking && gAuthorized && events && count) {
     uint8_t *e = reinterpret_cast<uint8_t *>(events);
     for (size_t i = 0; i < count; ++i, e += sizeof(SensorEvent)) {
       int32_t type = eventType(e);
@@ -102,8 +117,8 @@ static int64_t new_SensorEventQueue_write(void *self, void *bitTube, void *event
     }
   }
   if (gOrigSensorEventQueueWrite)
-    return gOrigSensorEventQueueWrite(self, bitTube, events, count);
-  __android_log_print(ANDROID_LOG_ERROR, kTag, "failed to get original SensorEventQueue_write");
+    return gOrigSensorEventQueueWrite(self, events, count);
+  KLOGE(kStepTag, "failed to get original SensorEventQueue_write");
   return -1;
 }
 
@@ -145,35 +160,41 @@ static void doHook() {
   const char *name = kSensorLib;
   if (!base) {
     const char *path = ElfHooker::getModulePath("libsensorservice.so");
-    if (!path)
+    if (!path) {
+      KLOGE(kStepTag, "libsensorservice.so not found in maps; abort hook");
       return;
-    __android_log_print(ANDROID_LOG_DEBUG, kTag, "find module %s", path);
+    }
+    KLOGI(kStepTag, "find module %s", path);
     base = ElfHooker::getModuleBase(path);
-    if (!base)
+    if (!base) {
+      KLOGE(kStepTag, "failed to resolve base of %s", path);
       return;
+    }
     name = path;
   }
 
   ElfReader reader(name, base);
   if (reader.parse() != 0) {
-    __android_log_print(ANDROID_LOG_ERROR, kTag, "failed to parse %s in %d maps at %p",
-                        kSensorLib, getpid(), base);
+    KLOGE(kStepTag, "failed to parse %s in pid %d maps at %p", kSensorLib, getpid(), base);
     return;
   }
 
   // SensorEventQueue::write has two mangled signatures across versions (m / j).
-  if (reader.hook(
-          "_ZN7android16SensorEventQueue5writeERKNS_2spINS_7BitTubeEEEPK12ASensorEventm",
-          (void *)new_SensorEventQueue_write, (void **)&gOrigSensorEventQueueWrite) != 0) {
-    reader.hook(
+  int writeRc = reader.hook(
+      "_ZN7android16SensorEventQueue5writeERKNS_2spINS_7BitTubeEEEPK12ASensorEventm",
+      (void *)new_SensorEventQueue_write, (void **)&gOrigSensorEventQueueWrite);
+  if (writeRc != 0) {
+    writeRc = reader.hook(
         "_ZN7android16SensorEventQueue5writeERKNS_2spINS_7BitTubeEEEPK12ASensorEventj",
         (void *)new_SensorEventQueue_write, (void **)&gOrigSensorEventQueueWrite);
   }
-  reader.hook(
+  int convertRc = reader.hook(
       "_ZN7android8hardware7sensors4V1_014implementation20convertToSensorEventERKNS2_5EventEP15sensors_event_t",
       (void *)new_convertToSensorEvent, (void **)&gOrigConvertToSensorEvent);
 
   gHooked = 1;
+  KLOGI(kStepTag, "doHook finished: SensorEventQueue::write rc=%d, convertToSensorEvent rc=%d",
+        writeRc, convertRc);
 }
 
 // ---------------------------------------------------------------------------
@@ -190,9 +211,12 @@ Java_com_kail_location_inject_utils_LStepSensor_doHook(JNIEnv *env, jobject, jby
   (void)license;
   (void)key;
   gAuthorized = 0;
-  if (fakeloc::verifyReleaseSignature(env) != 0)
+  if (fakeloc::verifyReleaseSignature(env) != 0) {
+    KLOGE(kStepTag, "doHook denied: release signature verification failed");
     return -2;
+  }
   gAuthorized = 1;
+  KLOGI(kStepTag, "doHook authorized (alreadyHooked=%d)", gHooked);
   if (!gHooked)
     doHook();
   return 0;
@@ -201,6 +225,8 @@ Java_com_kail_location_inject_utils_LStepSensor_doHook(JNIEnv *env, jobject, jby
 JNIEXPORT void JNICALL
 Java_com_kail_location_inject_utils_LStepSensor_setMocking(JNIEnv *, jobject, jboolean enabled) {
   gMocking = (gAuthorized != 0 && enabled == JNI_TRUE) ? 1 : 0;
+  KLOGI(kStepTag, "setMocking enabled=%d -> gMocking=%d (authorized=%d)",
+        enabled == JNI_TRUE, gMocking, gAuthorized);
 }
 
 JNIEXPORT jboolean JNICALL
@@ -237,6 +263,7 @@ Java_com_kail_location_inject_utils_LStepSensor_setSensorValues(
       break;
   }
   env->ReleaseFloatArrayElements(values, vals, 0);
+  KLOGV(kStepTag, "setSensorValues type=%d handle=%d", type, handle);
 }
 
 }  // extern "C"

@@ -2,6 +2,7 @@ package com.kail.location.sandbox
 
 import android.content.pm.ApplicationInfo
 import android.graphics.drawable.Drawable
+import com.kail.location.utils.KailLog
 import top.niunaijun.blackbox.BlackBoxCore
 import top.niunaijun.blackbox.utils.AbiUtils
 import java.io.File
@@ -10,6 +11,8 @@ import java.io.File
  * 沙盒管理器 - 提供给宿主应用使用的简化 API。
  */
 object SandboxManager {
+
+    private const val TAG = "SandboxManager"
 
     private var hostContext: android.content.Context? = null
 
@@ -37,7 +40,7 @@ object SandboxManager {
     fun getSandboxApps(userId: Int = 0): List<SandboxAppInfo> {
         return try {
             val installedApps = BlackBoxCore.get().getInstalledApplications(0, userId)
-            android.util.Log.d("SandboxManager", "Found ${installedApps.size} sandbox apps")
+            KailLog.d(null, TAG, "Found ${installedApps.size} sandbox apps")
             installedApps.map { appInfo ->
                 SandboxAppInfo(
                     name = safeLoadAppLabel(appInfo),
@@ -47,7 +50,7 @@ object SandboxManager {
                 )
             }
         } catch (e: Exception) {
-            android.util.Log.e("SandboxManager", "Error getting sandbox apps: ${e.message}", e)
+            KailLog.e(null, TAG, "Error getting sandbox apps: ${e.message}", e)
             emptyList()
         }
     }
@@ -61,10 +64,10 @@ object SandboxManager {
             val pm = ctx.packageManager
             val installedApplications = pm.getInstalledApplications(0)
             val hostPkg = BlackBoxCore.getHostPkg()
-            android.util.Log.d("SandboxManager", "hostContext=$hostContext, pm=$pm")
-            android.util.Log.d("SandboxManager", "Found ${installedApplications.size} installed apps, hostPkg=$hostPkg")
+            KailLog.d(null, TAG, "hostContext=$hostContext, pm=$pm")
+            KailLog.d(null, TAG, "Found ${installedApplications.size} installed apps, hostPkg=$hostPkg")
             if (installedApplications.isNotEmpty()) {
-                android.util.Log.d("SandboxManager", "First app: ${installedApplications[0].packageName}")
+                KailLog.d(null, TAG, "First app: ${installedApplications[0].packageName}")
             }
             val result = installedApplications
                 .filter { app ->
@@ -73,7 +76,7 @@ object SandboxManager {
                     val isInstalled = BlackBoxCore.get().isInstalled(app.packageName, 0)
                     val isAbiSupported = AbiUtils.isSupport(File(app.sourceDir))
                     if (!isSystem && !isHost && !isInstalled && isAbiSupported) {
-                        android.util.Log.d("SandboxManager", "  + ${app.packageName} (cloneable)")
+                        KailLog.d(null, TAG, "  + ${app.packageName} (cloneable)")
                     }
                     !isSystem && !isHost && !isInstalled && isAbiSupported
                 }
@@ -85,10 +88,10 @@ object SandboxManager {
                         sourceDir = app.sourceDir
                     )
                 }
-            android.util.Log.d("SandboxManager", "Filtered to ${result.size} cloneable apps")
+            KailLog.d(null, TAG, "Filtered to ${result.size} cloneable apps")
             result
         } catch (e: Exception) {
-            android.util.Log.e("SandboxManager", "Error getting system apps: ${e.message}", e)
+            KailLog.e(null, TAG, "Error getting system apps: ${e.message}", e)
             emptyList()
         }
     }
@@ -100,11 +103,14 @@ object SandboxManager {
         return try {
             val result = BlackBoxCore.get().installPackageAsUser(packageName, userId)
             if (result.success) {
+                KailLog.i(null, TAG, "cloneApp: $packageName installed (userId=$userId)")
                 Pair(true, "安装成功")
             } else {
+                KailLog.w(null, TAG, "cloneApp: $packageName install failed: ${result.msg}")
                 Pair(false, "安装失败: ${result.msg}")
             }
         } catch (e: Exception) {
+            KailLog.e(null, TAG, "cloneApp: $packageName threw", e)
             Pair(false, "安装失败: ${e.message}")
         }
     }
@@ -115,8 +121,10 @@ object SandboxManager {
     fun uninstallApp(packageName: String, userId: Int = 0): Pair<Boolean, String> {
         return try {
             BlackBoxCore.get().uninstallPackageAsUser(packageName, userId)
+            KailLog.i(null, TAG, "uninstallApp: $packageName uninstalled (userId=$userId)")
             Pair(true, "卸载成功")
         } catch (e: Exception) {
+            KailLog.e(null, TAG, "uninstallApp: $packageName threw", e)
             Pair(false, "卸载失败: ${e.message}")
         }
     }
@@ -128,11 +136,14 @@ object SandboxManager {
         return try {
             val success = BlackBoxCore.get().launchApk(packageName, userId)
             if (success) {
+                KailLog.i(null, TAG, "launchApp: $packageName launched (userId=$userId)")
                 Pair(true, "")
             } else {
+                KailLog.w(null, TAG, "launchApp: $packageName returned false")
                 Pair(false, "启动失败")
             }
         } catch (e: Exception) {
+            KailLog.e(null, TAG, "launchApp: $packageName threw", e)
             Pair(false, "启动失败: ${e.message}")
         }
     }
@@ -143,8 +154,10 @@ object SandboxManager {
     fun clearAppData(packageName: String, userId: Int = 0): Pair<Boolean, String> {
         return try {
             BlackBoxCore.get().clearPackage(packageName, userId)
+            KailLog.i(null, TAG, "clearAppData: $packageName cleared (userId=$userId)")
             Pair(true, "清除成功")
         } catch (e: Exception) {
+            KailLog.e(null, TAG, "clearAppData: $packageName threw", e)
             Pair(false, "清除失败: ${e.message}")
         }
     }
@@ -155,8 +168,10 @@ object SandboxManager {
     fun stopApp(packageName: String, userId: Int = 0): Pair<Boolean, String> {
         return try {
             BlackBoxCore.get().stopPackage(packageName, userId)
+            KailLog.i(null, TAG, "stopApp: $packageName stopped (userId=$userId)")
             Pair(true, "已停止运行")
         } catch (e: Exception) {
+            KailLog.e(null, TAG, "stopApp: $packageName threw", e)
             Pair(false, "停止失败: ${e.message}")
         }
     }

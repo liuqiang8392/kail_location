@@ -12,14 +12,17 @@ import com.kail.locationxposed.xposed.base.BaseLocationHook
 import com.kail.locationxposed.xposed.utils.BlindHookLocation
 import com.kail.locationxposed.xposed.utils.BinderUtils
 import com.kail.locationxposed.xposed.utils.FakeLoc
+import com.kail.locationxposed.xposed.utils.KailLog
 import com.kail.locationxposed.xposed.utils.beforeHook
 import com.kail.locationxposed.xposed.utils.onceHookAllMethod
 import com.kail.locationxposed.xposed.utils.onceHookMethodBefore
 
 object MiuiBlurLocationProviderHook: BaseLocationHook() {
+    private const val TAG = "MiuiBlurLocationProviderHook"
     operator fun invoke(classLoader: ClassLoader) {
         val cMiuiBlurLocationManagerImpl = XposedHelpers.findClassIfExists("com.android.server.location.MiuiBlurLocationManagerImpl", classLoader)
         if (cMiuiBlurLocationManagerImpl != null) {
+            KailLog.i(null, TAG, "installing MiuiBlurLocationManagerImpl hooks (sdk=${Build.VERSION.SDK_INT})")
             BlindHookLocation(cMiuiBlurLocationManagerImpl, classLoader)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -72,6 +75,8 @@ object MiuiBlurLocationProviderHook: BaseLocationHook() {
                     result = cellInfos
                 }
             })
+        } else {
+            KailLog.d(null, TAG, "MiuiBlurLocationManagerImpl not present; skipping (non-MIUI ROM)")
         }
     }
 

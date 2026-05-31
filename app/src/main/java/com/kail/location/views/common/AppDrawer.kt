@@ -257,6 +257,14 @@ fun AppDrawer(
                 }
                 item {
                     NavigationDrawerItem(
+                        label = { Text(stringResource(R.string.nav_menu_root_app_hide)) },
+                        icon = { Icon(painterResource(R.drawable.ic_menu_settings), contentDescription = null) },
+                        selected = currentScreen == "RootAppHide",
+                        onClick = { scope.launch { closeDrawerSmooth(); onNavigate(R.id.nav_root_app_hide) } }
+                    )
+                }
+                item {
+                    NavigationDrawerItem(
                         label = { Text(stringResource(R.string.nav_menu_wifi_sim)) },
                         icon = { Icon(painterResource(R.drawable.ic_menu_settings), contentDescription = null) },
                         selected = currentScreen == "WifiSimulation",

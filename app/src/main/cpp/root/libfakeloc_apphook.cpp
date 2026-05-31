@@ -24,12 +24,12 @@ static bool gAppHookLoaded = false;     // byte_5D48 / byte_74A8
 // init  (sub_2030 / sub_289C)
 // ---------------------------------------------------------------------------
 static void init(JNIEnv *env) {
-  __android_log_print(ANDROID_LOG_INFO, kLogTag, "AppHook is Executing");
+  KLOGI(kLogTag, "AppHook is Executing");
 
   if (verifyApkMd5() != 0)
     return;
   if (!env) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag, "jni_env is NULL!!");
+    KLOGI(kLogTag, "jni_env is NULL!!");
     return;
   }
   if (verifyReleaseSignature(env) != 0)
@@ -69,7 +69,7 @@ static void init(JNIEnv *env) {
   // InjectDex instance; the original called it as a static-style helper.
   env->CallStaticObjectMethod(injectClass, hookApp, context);
 
-  __android_log_print(ANDROID_LOG_INFO, kLogTag, "AppHook is finished");
+  KLOGI(kLogTag, "AppHook is finished");
 
   env->DeleteLocalRef(context);
   env->DeleteLocalRef(ctxClass);
@@ -87,22 +87,22 @@ static void init(JNIEnv *env) {
 extern "C" __attribute__((visibility("default"))) void doRun(JavaVM **vmPtr, const char *arg) {
   (void)arg;
   if (gAppHookLoaded) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "-- Already loaded");
+    KLOGE(kLogTag, "-- Already loaded");
     return;
   }
   if (!vmPtr) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "JavaVM** == NULL");
+    KLOGE(kLogTag, "JavaVM** == NULL");
     return;
   }
   JavaVM *vm = *vmPtr;
   if (!vm) {
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "JavaVM* == NULL");
+    KLOGE(kLogTag, "JavaVM* == NULL");
     return;
   }
 
   JNIEnv *env = nullptr;
   if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK)
-    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "AttachCurrentThread (main) != JNI_OK");
+    KLOGE(kLogTag, "AttachCurrentThread (main) != JNI_OK");
   else
     init(env);
 

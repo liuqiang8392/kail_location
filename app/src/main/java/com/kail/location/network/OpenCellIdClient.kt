@@ -1,7 +1,7 @@
 package com.kail.location.network
 
-import android.util.Log
 import com.kail.location.models.CellInfo
+import com.kail.location.utils.KailLog
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -36,20 +36,20 @@ object OpenCellIdClient {
     private fun doRequest(url: String): String? {
         // Log URL with key masked for security
         val masked = url.replace(Regex("key=[^&]*"), "key=xxx")
-        Log.d(TAG, "Request URL: $masked")
+        KailLog.d(null, TAG, "Request URL: $masked")
         return try {
             val request = Request.Builder().url(url).get().build()
             val response = client.newCall(request).execute()
-            Log.d(TAG, "Response code: ${response.code}")
+            KailLog.d(null, TAG, "Response code: ${response.code}")
             if (!response.isSuccessful) {
-                Log.w(TAG, "OpenCellID request failed: ${response.code}, body=${response.body?.string()}")
+                KailLog.w(null, TAG, "OpenCellID request failed: ${response.code}, body=${response.body?.string()}")
                 return null
             }
             val body = response.body?.string()
-            Log.d(TAG, "Response body: ${body?.take(500)}")
+            KailLog.d(null, TAG, "Response body: ${body?.take(500)}")
             body
         } catch (e: Exception) {
-            Log.e(TAG, "OpenCellID fetch error: ${e.javaClass.simpleName}: ${e.message}")
+            KailLog.e(null, TAG, "OpenCellID fetch error: ${e.javaClass.simpleName}: ${e.message}")
             null
         }
     }
@@ -70,7 +70,7 @@ object OpenCellIdClient {
         radiusKm: Double = 0.5
     ): List<CellInfo> {
         if (apiKey.isBlank()) {
-            Log.w(TAG, "API key is blank")
+            KailLog.w(null, TAG, "API key is blank")
             return emptyList()
         }
 
@@ -85,11 +85,11 @@ object OpenCellIdClient {
         try {
             val root = JSONObject(json)
             if (!root.has("cells")) {
-                Log.w(TAG, "No 'cells' field in response. Keys: ${root.keys().asSequence().toList()}")
+                KailLog.w(null, TAG, "No 'cells' field in response. Keys: ${root.keys().asSequence().toList()}")
                 return results
             }
             val cells = root.getJSONArray("cells")
-            Log.d(TAG, "Parsed ${cells.length()} cells total")
+            KailLog.d(null, TAG, "Parsed ${cells.length()} cells total")
             for (i in 0 until cells.length()) {
                 val obj = cells.getJSONObject(i)
                 val radio = obj.optString("radio", "")
@@ -108,9 +108,9 @@ object OpenCellIdClient {
                 )
                 results.add(info)
             }
-            Log.d(TAG, "Filtered ${results.size} cell towers")
+            KailLog.d(null, TAG, "Filtered ${results.size} cell towers")
         } catch (e: Exception) {
-            Log.e(TAG, "Parse cell error", e)
+            KailLog.e(null, TAG, "Parse cell error", e)
         }
         return results
     }

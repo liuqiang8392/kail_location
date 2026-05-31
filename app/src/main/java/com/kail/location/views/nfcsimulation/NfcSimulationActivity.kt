@@ -70,6 +70,7 @@ class NfcSimulationActivity : BaseActivity() {
                 R.id.nav_location_simulation -> Intent(this, com.kail.location.views.locationsimulation.LocationSimulationActivity::class.java)
                 R.id.nav_route_simulation -> Intent(this, com.kail.location.views.routesimulation.RouteSimulationActivity::class.java)
                 R.id.nav_independent_simulation -> Intent(this, com.kail.location.views.independentsimulation.IndependentSimulationActivity::class.java)
+                R.id.nav_root_app_hide -> Intent(this, com.kail.location.views.roothide.RootAppHideActivity::class.java)
                 R.id.nav_wifi_simulation -> Intent(this, com.kail.location.views.wifisimulation.WifiSimulationActivity::class.java)
                 R.id.nav_cell_simulation -> Intent(this, com.kail.location.views.cellsimulation.CellSimulationActivity::class.java)
                 R.id.nav_sandbox -> Intent(this, com.kail.location.views.sandbox.SandboxActivity::class.java)

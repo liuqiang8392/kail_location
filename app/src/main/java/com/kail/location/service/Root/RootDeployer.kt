@@ -1,8 +1,10 @@
 package com.kail.location.service.Root
 
 import android.content.Context
+import androidx.preference.PreferenceManager
 import com.kail.location.utils.KailLog
 import com.kail.location.utils.ShellUtils
+import com.kail.location.viewmodels.SettingsViewModel
 import java.io.File
 import java.util.zip.ZipFile
 
@@ -65,6 +67,7 @@ object RootDeployer {
             return false
         }
         prepareDirs()
+        syncInjectLogMarkers(context)
         deployNativeHookLib(context)
         deployInjectorBin(context)
         deployFakelocLibs(context)
@@ -76,6 +79,41 @@ object RootDeployer {
         runCatching { bootstrapInjection() }
             .onFailure { KailLog.w(null, TAG, "bootstrapInjection: ${it.message}") }
         return true
+    }
+
+    /** 注入态日志标记目录（与 InjectLog 中的常量保持一致）。 */
+    private const val INJECT_LOG_DIR = "/sdcard/Documents/KailLocation/logs"
+
+    /**
+     * 把宿主的日志开关同步成注入进程可读的标记文件。
+     *
+     * 注入态 Hook 运行在目标 App 进程里，读不到本应用的 SharedPreferences，
+     * 因此用公共目录下的标记文件传递开关（见 [com.kail.location.inject.utils.InjectLog]）：
+     *   .kail_debug    -> 启用日志
+     *   .kail_log_file -> 额外落盘
+     *   .kail_verbose  -> 启用高频(V)详细日志
+     */
+    fun syncInjectLogMarkers(context: Context) {
+        runCatching {
+            val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+            val logEnabled = prefs.getBoolean(SettingsViewModel.KEY_LOG_ENABLED, false)
+            val debugEnabled = prefs.getBoolean(SettingsViewModel.KEY_DEBUG_LOG_ENABLED, false)
+            // 详细调试隐含开启基础日志。
+            val enabled = logEnabled || debugEnabled
+            ShellUtils.executeCommand("mkdir -p $INJECT_LOG_DIR")
+            toggleMarker("$INJECT_LOG_DIR/.kail_debug", enabled)
+            toggleMarker("$INJECT_LOG_DIR/.kail_log_file", logEnabled)
+            toggleMarker("$INJECT_LOG_DIR/.kail_verbose", debugEnabled)
+            KailLog.i(context, TAG, "syncInjectLogMarkers: enabled=$enabled file=$logEnabled verbose=$debugEnabled")
+        }.onFailure { KailLog.w(context, TAG, "syncInjectLogMarkers: ${it.message}") }
+    }
+
+    private fun toggleMarker(path: String, on: Boolean) {
+        if (on) {
+            ShellUtils.executeCommand("touch $path && chmod 666 $path")
+        } else {
+            ShellUtils.executeCommand("rm -f $path")
+        }
     }
 
     /**
@@ -149,7 +187,17 @@ object RootDeployer {
     fun deployNativeHookLib(context: Context): Boolean {
         val src = File(context.applicationInfo.nativeLibraryDir, NATIVE_HOOK_SO)
         val dst = File(STAGING_DIR, NATIVE_HOOK_SO)
-        return copyAndChmod(context, src, "lib/${preferredAbi()}/$NATIVE_HOOK_SO", dst)
+        val ok = copyAndChmod(context, src, "lib/${preferredAbi()}/$NATIVE_HOOK_SO", dst)
+        // Also stage it under FAKELOC_DIR with the system_file SELinux label so
+        // it can be System.load()ed from inside system_server by the inject
+        // (NativeStepHook for root-mode step/gait simulation).
+        runCatching {
+            val fakelocDst = File(FAKELOC_DIR, NATIVE_HOOK_SO)
+            ShellUtils.executeCommand("cp -f ${dst.absolutePath} ${fakelocDst.absolutePath}")
+            ShellUtils.executeCommand("chmod 644 ${fakelocDst.absolutePath}")
+            ShellUtils.executeCommand("chcon u:object_r:system_file:s0 ${fakelocDst.absolutePath}")
+        }.onFailure { KailLog.w(null, TAG, "stage native hook into FAKELOC_DIR: ${it.message}") }
+        return ok
     }
 
     fun deployInjectorBin(context: Context): Boolean {

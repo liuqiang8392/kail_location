@@ -4738,6 +4738,7 @@ public class PackageManagerServiceHook {
 
     /* JADX INFO: Access modifiers changed from: private */
     public static void log(Object... objArr) {
+        com.kail.location.inject.utils.InjectLog.log("PackageManagerServiceHook", objArr);
     }
 
     public static Object queryContentProviders(Object obj, String str, int i, int i2, String str2) {

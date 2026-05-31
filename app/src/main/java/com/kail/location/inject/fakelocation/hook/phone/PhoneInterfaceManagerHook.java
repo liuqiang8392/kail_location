@@ -4596,6 +4596,7 @@ public class PhoneInterfaceManagerHook {
     }
 
     private static void log(Object... objArr) {
+        com.kail.location.inject.utils.InjectLog.log("PhoneInterfaceManagerHook", objArr);
     }
 
     public static boolean onTransact(Object obj, int i, Parcel parcel, Parcel parcel2, int i2) {

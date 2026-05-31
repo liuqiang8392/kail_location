@@ -31,6 +31,8 @@
 
 #include <android/log.h>
 
+#include "kail_log.h"
+
 // ---------------------------------------------------------------------------
 // Globals
 // ---------------------------------------------------------------------------
@@ -49,7 +51,7 @@ static void (*gRemoteStopCallback)() = nullptr;
 
 #define LOGV(...) \
   do { if (gVerboseLoggingEnabled) \
-         __android_log_print(ANDROID_LOG_DEBUG, kInjectorLogTag, __VA_ARGS__); } while (0)
+         KLOGD(kInjectorLogTag, __VA_ARGS__); } while (0)
 
 // Forward declarations
 static void     waitForRemoteStop();
@@ -287,9 +289,7 @@ static uint64_t callRemoteFunction(uint64_t func, int argc, ...) {
   iov.iov_len  = sizeof(regs);
   ptraceWithRetry("call", PTRACE_SETREGSET, NT_PRSTATUS, (uintptr_t)&iov);
   ptraceWithRetry("call", PTRACE_CONT, 0, 0);
-  __android_log_print(ANDROID_LOG_DEBUG, kInjectorLogTag,
-                      "callRemoteFunction: continued tracee at func=0x%llx",
-                      (unsigned long long)func);
+  KLOGD(kInjectorLogTag, "callRemoteFunction: continued tracee at func=0x%llx", (unsigned long long)func);
 
   // WATCHDOG: if the remote function hangs (typically because the linker
   // mutex is held by a sibling thread of the tracee), waitpid will block
@@ -301,11 +301,8 @@ static uint64_t callRemoteFunction(uint64_t func, int argc, ...) {
   bool timed_out = false;
   while (true) {
     if (nowMillis() - startMs > gCallTimeoutMs) {
-      __android_log_print(ANDROID_LOG_ERROR, kInjectorLogTag,
-                          "callRemoteFunction watchdog tripped (%llums); "
-                          "remote func 0x%llx never returned. Aborting.",
-                          (unsigned long long)gCallTimeoutMs,
-                          (unsigned long long)func);
+      KLOGE(kInjectorLogTag, "callRemoteFunction watchdog tripped (%llums); "
+                          "remote func 0x%llx never returned. Aborting.", (unsigned long long)gCallTimeoutMs, (unsigned long long)func);
       timed_out = true;
       break;
     }
@@ -459,9 +456,9 @@ static int injectLibraryIntoProcess(int pid, const char *libraryPath, const char
        (void *)gRemoteDlerror, (void *)javaVm);
 
   uint64_t remotePath   = writeRemoteString(libraryPath);
-  __android_log_print(ANDROID_LOG_INFO, kInjectorLogTag, "writeRemoteString done, remotePath=0x%llx", (unsigned long long)remotePath);
+  KLOGI(kInjectorLogTag, "writeRemoteString done, remotePath=0x%llx", (unsigned long long)remotePath);
   uint64_t remoteHandle = callRemoteFunction(gRemoteDlopen, 2, remotePath, (uint64_t)RTLD_NOW);
-  __android_log_print(ANDROID_LOG_INFO, kInjectorLogTag, "remote dlopen returned 0x%llx", (unsigned long long)remoteHandle);
+  KLOGI(kInjectorLogTag, "remote dlopen returned 0x%llx", (unsigned long long)remoteHandle);
   callRemoteFunction(gRemoteFree, 1, remotePath);
 
   int result;
@@ -531,13 +528,12 @@ static int injectMain(int argc, char **argv) {
       case 'P':
         processName = optarg;
         if (!optarg || !*optarg) {
-          __android_log_print(ANDROID_LOG_ERROR, "LINJECT", "process name is NULL");
+          KLOGE("LINJECT", "process name is NULL");
           ok = false;
         } else {
           pid = findPidByProcessName(optarg);
           if (pid <= 0) {
-            __android_log_print(ANDROID_LOG_ERROR, "LINJECT",
-                                "failed to get Pid of process %s", processName);
+            KLOGE("LINJECT", "failed to get Pid of process %s", processName);
             ok = false;
           }
         }
@@ -550,8 +546,7 @@ static int injectMain(int argc, char **argv) {
       break;
   }
 
-  __android_log_print(ANDROID_LOG_DEBUG, "LINJECT", "Inject[%d|%s] library: %s\n",
-                      pid, processName, libraryPath);
+  KLOGD("LINJECT", "Inject[%d|%s] library: %s\n", pid, processName, libraryPath);
 
   if (!ok || (pid < 1 && processName == nullptr) || !libraryPath || !packageName ||
       strcmp("com.kail.location", packageName))
@@ -559,17 +554,17 @@ static int injectMain(int argc, char **argv) {
 
   if (access(libraryPath, R_OK) == -1) {
     fprintf(stderr, "%s must chmod r\n", libraryPath);
-    __android_log_print(ANDROID_LOG_ERROR, "LINJECT", "%s must chmod r\n", libraryPath);
+    KLOGE("LINJECT", "%s must chmod r\n", libraryPath);
     exit(-1);
   }
 
   int rc = injectLibraryIntoProcess(pid, libraryPath, "Kail.");
   if (rc) {
     printf("Inject fail %d.\n", rc);
-    __android_log_print(ANDROID_LOG_ERROR, "LINJECT", "Inject fail %d.\n", rc);
+    KLOGE("LINJECT", "Inject fail %d.\n", rc);
   } else {
     puts("Inject ok.");
-    __android_log_print(ANDROID_LOG_DEBUG, "LINJECT", "Inject ok.\n");
+    KLOGD("LINJECT", "Inject ok.\n");
   }
   return rc;
 }

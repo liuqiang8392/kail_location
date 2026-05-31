@@ -1,5 +1,6 @@
 package com.kail.location.service.Sandbox
 
+import com.kail.location.utils.KailLog
 import top.niunaijun.blackbox.BlackBoxCore
 import top.niunaijun.blackbox.entity.location.BLocation
 import top.niunaijun.blackbox.fake.frameworks.BLocationManager
@@ -9,6 +10,8 @@ import top.niunaijun.blackbox.fake.frameworks.BLocationManager
  * 通过 BlackBox 的 BLocationManager 向沙盒内应用注入模拟位置。
  */
 object SandboxLocationHook {
+
+    private const val TAG = "SandboxLocationHook"
 
     @Volatile
     private var isSimulating = false
@@ -32,8 +35,9 @@ object SandboxLocationHook {
         try {
             BLocationManager.get().setPattern(0, "", BLocationManager.GLOBAL_MODE)
             isSimulating = true
+            KailLog.i(null, TAG, "enableGlobalSimulation: global mode on")
         } catch (e: Exception) {
-            android.util.Log.e("SandboxLocationHook", "Failed to enable global simulation: ${e.message}")
+            KailLog.e(null, TAG, "Failed to enable global simulation", e)
         }
     }
 
@@ -44,8 +48,9 @@ object SandboxLocationHook {
         try {
             BLocationManager.get().setPattern(0, "", BLocationManager.CLOSE_MODE)
             isSimulating = false
+            KailLog.i(null, TAG, "disableSimulation: simulation off")
         } catch (e: Exception) {
-            android.util.Log.e("SandboxLocationHook", "Failed to disable simulation: ${e.message}")
+            KailLog.e(null, TAG, "Failed to disable simulation", e)
         }
     }
 
@@ -63,8 +68,9 @@ object SandboxLocationHook {
             try {
                 val bLocation = BLocation(lat, lng)
                 BLocationManager.get().setGlobalLocation(bLocation)
+                KailLog.v(null, TAG, "updateLocation lat=$lat lng=$lng alt=$alt bea=$bearing spd=$speed")
             } catch (e: Exception) {
-                android.util.Log.e("SandboxLocationHook", "Failed to update location: ${e.message}")
+                KailLog.e(null, TAG, "Failed to update location", e)
             }
         }
     }
