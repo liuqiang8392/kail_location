@@ -34,28 +34,28 @@ import com.kail.location.inject.fakelocation.model.CellTowerInfo;
 public class MockLocationHookManager {
 
     /* JADX INFO: renamed from: ֏, reason: contains not printable characters */
-    private static List<CellTowerInfo> mockCells;
+    static List<CellTowerInfo> mockCells;
 
     /* JADX INFO: renamed from: ؠ, reason: contains not printable characters */
-    private static Class locationManagerServiceClass;
+    static Class locationManagerServiceClass;
 
     /* JADX INFO: renamed from: ހ, reason: contains not printable characters */
-    private static Class locationManagerReceiverClass;
+    static Class locationManagerReceiverClass;
 
     /* JADX INFO: renamed from: ށ, reason: contains not printable characters */
-    private static Class iLocationListenerClass;
+    static Class iLocationListenerClass;
 
     /* JADX INFO: renamed from: ނ, reason: contains not printable characters */
-    private static Class iRemoteCallbackClass;
+    static Class iRemoteCallbackClass;
 
     /* JADX INFO: renamed from: ރ, reason: contains not printable characters */
-    private static Class iLocationListenerStubClass;
+    static Class iLocationListenerStubClass;
 
     /* JADX INFO: renamed from: ބ, reason: contains not printable characters */
-    private static Class iLocationListenerStubProxyClass;
+    static Class iLocationListenerStubProxyClass;
 
     /* JADX INFO: renamed from: ޅ, reason: contains not printable characters */
-    private static Class locationListenerTransportClass;
+    static Class locationListenerTransportClass;
 
     /* JADX INFO: renamed from: ލ, reason: contains not printable characters */
     static float[] gnssCarrierFrequencies;
@@ -64,22 +64,22 @@ public class MockLocationHookManager {
     static float[] gnssCarrierFrequenciesCopy;
 
     /* JADX INFO: renamed from: ޡ, reason: contains not printable characters */
-    private static boolean mocking;
+    static boolean mocking;
 
     /* JADX INFO: renamed from: ޢ, reason: contains not printable characters */
-    private static boolean mockGpsStatusEnabled;
+    static boolean mockGpsStatusEnabled;
 
     /* JADX INFO: renamed from: ޤ, reason: contains not printable characters */
-    private static List<String> allowMockPackages;
+    static List<String> allowMockPackages;
 
     /* JADX INFO: renamed from: ޥ, reason: contains not printable characters */
-    private static Class<?> iGnssStatusListenerClass;
+    static Class<?> iGnssStatusListenerClass;
 
     /* JADX INFO: renamed from: ޱ, reason: contains not printable characters */
-    private static Class<?> iGpsStatusListenerClass;
+    static Class<?> iGpsStatusListenerClass;
 
     /* JADX INFO: renamed from: ࢤ, reason: contains not printable characters */
-    private static List<String> scopedAllowMockRules;
+    static List<String> scopedAllowMockRules;
 
     /* JADX INFO: renamed from: ކ, reason: contains not printable characters */
     static final HashMap<Object, String> gpsStatusListenerPackages = new HashMap<>();
@@ -151,16 +151,16 @@ public class MockLocationHookManager {
     static int usedInFixMask = -752344575;
 
     /* JADX INFO: renamed from: ޟ, reason: contains not printable characters */
-    private static Location mockLocation = new Location("gps");
+    static Location mockLocation = new Location("gps");
 
     /* JADX INFO: renamed from: ޠ, reason: contains not printable characters */
-    private static Location tempLocation = new Location("gps");
+    static Location tempLocation = new Location("gps");
 
     /* JADX INFO: renamed from: ޣ, reason: contains not printable characters */
-    private static long mockIntervalMillis = 1000;
+    static long mockIntervalMillis = 1000;
 
     /* JADX INFO: renamed from: ࢠ, reason: contains not printable characters */
-    private static final Object mockPackageLock = new Object();
+    static final Object mockPackageLock = new Object();
 
     /* JADX INFO: renamed from: ࢢ, reason: contains not printable characters */
     public static boolean initialized = false;
@@ -477,18 +477,25 @@ public class MockLocationHookManager {
                 this.locationManager = obj2;
             }
 
-            /* JADX WARN: Removed duplicated region for block: B:37:0x01b9  */
-            @Override // java.lang.reflect.InvocationHandler
-            /*
-                Code decompiled incorrectly, please refer to instructions dump.
-                To view partially-correct code enable 'Show inconsistent code' option in preferences
-            */
-            public java.lang.Object invoke(java.lang.Object r22, java.lang.reflect.Method r23, java.lang.Object[] r24) {
-                /*
-                    Method dump skipped, instruction units count: 500
-                    To view this dump change 'Code comments level' option to 'DEBUG'
-                */
-                throw new UnsupportedOperationException("Method not decompiled: com.lerist.inject.utils.MockLocationHookManager.LocationListenerHooks.LocationListenerCallbackProxy.invoke(java.lang.Object, java.lang.reflect.Method, java.lang.Object[]):java.lang.Object");
+            /**
+             * Mirror of the working `GnssStatusCallbackRProxy.invoke` above.
+             *
+             * Intercepts `IGnssStatusListener` callbacks for API 31+:
+             * - swaps satellite arrays in `onSvStatusChanged` for synthetic
+             *   data when mocking is enabled,
+             * - swallows `onNmeaReceived` while mocking,
+             * - delegates everything else to the original listener.
+             *
+             * Implementation deliberately keeps the byte-code small so
+             * Android 14's ART verifier is happy on first invocation:
+             * splitting the helper out of the inner-class invoke method
+             * also avoids the dexCache resolution path that crashed
+             * system_server in the original JADX-decompiled stub.
+             */
+            @Override
+            public Object invoke(Object proxy, Method method, Object[] args) {
+                return MockLocationHookManager.dispatchLocationListenerCallback(
+                        this.packageName, this.originalListener, this.locationManager, method, args);
             }
         }
 
@@ -1563,17 +1570,275 @@ public class MockLocationHookManager {
     }
 
     /**
-     * Stub of the original callGpsStatusChanged().
+     * Build a synthetic {@link GnssStatus} populated from the gnss* arrays.
      *
-     * The JADX-decompiled body of this method contained malformed catch-block
-     * variable scoping that does not compile under javac. Since the kail
-     * rebrand drives mock-GPS-status notification through the in-app
-     * {@code NativeSensorHook} path (and the location-only mock loop), this
-     * dispatch helper is intentionally reduced to a no-op. Restore the full
-     * GNSS/GPS-listener spoofing logic when the upstream decompile is fixed.
+     * Android 12+ delivers SV-status to {@code IGnssStatusListener} as a
+     * single {@link GnssStatus} parcelable rather than the legacy
+     * (int svCount, int[] svid, float[] cn0, ...) tuple. Without packing
+     * the synthetic constellation data into the new object, every
+     * `onSvStatusChanged` callback we let through to the listener carries
+     * the *real* satellites and Mock GNSS does nothing on screen.
+     */
+    static GnssStatus buildSyntheticGnssStatus() {
+        GnssStatus.Builder b = new GnssStatus.Builder();
+        int count = Math.max(10, new SecureRandom().nextInt(maxVisibleGnssSatellites));
+        int avail = gnssSvids != null ? gnssSvids.length : 0;
+        if (avail == 0) return b.build();
+        if (count > avail) count = avail;
+        for (int i = 0; i < count; i++) {
+            int svid = (gnssSvids[i] & 0xff);
+            if (svid < 1) svid = 1;
+            if (svid > 200) svid = 200;
+            float cn0 = gnssCn0DbHz != null && i < gnssCn0DbHz.length ? gnssCn0DbHz[i] : 30.0f;
+            if (cn0 < 0f) cn0 = 0f;
+            if (cn0 > 63f) cn0 = 63f;
+            float rawElev = gnssElevations != null && i < gnssElevations.length ? gnssElevations[i] : 45.0f;
+            // The arrays use 0..360 ranges historically; clamp to GnssStatus's
+            // declared elevation [-90, 90] / azimuth [0, 360] domains.
+            float elev = ((rawElev % 180f) - 90f);
+            if (elev < -90f) elev = -90f;
+            if (elev > 90f) elev = 90f;
+            float rawAz = gnssAzimuths != null && i < gnssAzimuths.length ? gnssAzimuths[i] : 180.0f;
+            float az = rawAz % 360f;
+            if (az < 0f) az += 360f;
+            float carrier = gnssCarrierFrequencies != null && i < gnssCarrierFrequencies.length
+                    ? gnssCarrierFrequencies[i] : 1.57542E9f;
+            int constellation = (i % 5) + 1; // GPS=1, SBAS=2, GLONASS=3, QZSS=4, BEIDOU=5
+            b.addSatellite(constellation, svid, cn0, elev, az,
+                    /*hasEphemeris=*/true,
+                    /*hasAlmanac=*/true,
+                    /*usedInFix=*/i < 12,
+                    /*hasCarrierFrequency=*/true,
+                    carrier,
+                    /*hasBasebandCn0=*/false,
+                    /*basebandCn0=*/0f);
+        }
+        return b.build();
+    }
+
+    /**
+     * Out-of-line callback dispatcher for the
+     * `LocationListenerHooks.LocationListenerCallbackProxy` proxy.
+     *
+     * The body of the proxy's `invoke` method was a 500-instruction
+     * try/catch web that JADX could not lift cleanly. Reimplementing the
+     * entire body inside the inner class triggered an Android 14 ART
+     * verifier crash (`Class::FindClassMethod` SIGSEGV) on first
+     * invocation: the verifier walks the inner class's method ids and
+     * dereferences a stale dexCache pointer when the class footprint
+     * exceeds a vendor-specific threshold.
+     *
+     * Splitting the logic into this static helper keeps the proxy's
+     * `invoke` byte-code small (one method call), so the proxy class
+     * verifies cleanly. The behaviour matches the other working sibling
+     * proxies (GnssStatusCallbackProxy / GnssStatusCallbackRProxy /
+     * GpsStatusListenerProxy).
+     */
+    static Object dispatchLocationListenerCallback(
+            String packageName,
+            Object originalListener,
+            Object locationManager,
+            Method method,
+            Object[] argsIn) {
+        Object[] args = argsIn;
+        String name = method == null ? null : method.getName();
+        if ("onSvStatusChanged".equals(name) && args != null
+                && mockGpsStatusEnabled && isMocking() && isAllowMockPackage(packageName, "f")) {
+            // Android 12+ signature: void onSvStatusChanged(GnssStatus status)
+            // Older legacy signatures take parallel arrays. Substitute mock
+            // data appropriate to the signature actually being invoked.
+            if (args.length == 1 && args[0] != null && args[0] instanceof GnssStatus) {
+                args = new Object[]{buildSyntheticGnssStatus()};
+            } else {
+                int[] svidsForStatus = getRandomLength(gnssSvidsForStatus, 64);
+                float[] cn0ForStatus = getRandomLength(gnssCn0DbHzForStatus, 64);
+                float[] elevForStatus = getRandomLength(gnssElevationsForStatus, 64);
+                float[] azimForStatus = getRandomLength(gnssAzimuthsForStatus, 64);
+                int visibleCount = Math.max(10, new SecureRandom().nextInt(maxVisibleGnssSatellites));
+                int[] svids = getRandomLength(gnssSvids, visibleCount);
+                float[] carrierFreq = gnssCarrierFrequencies != null
+                        ? getRandomLength(gnssCarrierFrequencies, visibleCount)
+                        : new float[visibleCount];
+                if (gnssCarrierFrequencies == null) {
+                    java.util.Arrays.fill(carrierFreq, 1.57542E9f);
+                }
+                float[] cn0 = getRandomLength(gnssCn0DbHz, visibleCount);
+                float[] elev = getRandomLength(gnssElevations, visibleCount);
+                float[] azim = getRandomLength(gnssAzimuths, visibleCount);
+                if (args.length == 5) {
+                    args = new Object[]{64, svidsForStatus, cn0ForStatus, elevForStatus, azimForStatus};
+                } else if (args.length == 6) {
+                    args = new Object[]{Integer.valueOf(visibleCount), svids, carrierFreq, cn0, elev, azim};
+                } else if (args.length >= 7) {
+                    args[0] = Integer.valueOf(visibleCount);
+                    args[1] = svids;
+                    args[2] = carrierFreq;
+                    args[3] = cn0;
+                    args[4] = elev;
+                    args[5] = azim;
+                    args[6] = carrierFreq;
+                }
+            }
+            try {
+                ReflectionUtils.invokeMethod(originalListener, iGnssStatusListenerClass,
+                        "onFirstFix", new Class[]{Integer.TYPE},
+                        new Object[]{Integer.valueOf(firstFixMillis)});
+            } catch (Throwable ignored) {
+            }
+        }
+        if ("onNmeaReceived".equals(name) && isMocking() && isAllowMockPackage(packageName, "f")) {
+            return null;
+        }
+        try {
+            return method.invoke(originalListener, args);
+        } catch (Throwable th) {
+            try {
+                unregisterGnssStatusCallback(locationManager, originalListener);
+            } catch (Throwable ignored) {
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Push a synthetic SV-status / first-fix event to every registered
+     * GPS / GNSS status listener whose package is allow-listed for mocking.
+     *
+     * Reconstructed from FakeLocation 1.50 behaviour: JADX could not lift the
+     * original method body cleanly because the dex used a try/catch
+     * arrangement that confused the decompiler, so this implementation is
+     * rebuilt from the surrounding usage (the addIGnssStatusListener /
+     * gnssStatusListenerPackages / iGnssStatusListenerClass surface) and the
+     * sibling proxies above which use the same on-the-fly synthetic-array
+     * construction.
+     *
+     * Fired by callOnLocationChanged after each location push so that GNSS
+     * consumers see "satellites in view" feedback consistent with the mock
+     * location.
      */
     public static void callGpsStatusChanged() {
-        // intentionally empty
+        if (!isMocking() || !mockGpsStatusEnabled) {
+            return;
+        }
+
+        // Synthetic constellation data, regenerated each event so listener
+        // sees plausible variation between fixes.
+        int[] svidsForStatus = getRandomLength(gnssSvidsForStatus, 64);
+        float[] cn0ForStatus = getRandomLength(gnssCn0DbHzForStatus, 64);
+        float[] elevForStatus = getRandomLength(gnssElevationsForStatus, 64);
+        float[] azimForStatus = getRandomLength(gnssAzimuthsForStatus, 64);
+        int visibleCount = Math.max(10, new SecureRandom().nextInt(maxVisibleGnssSatellites));
+        int[] svids = getRandomLength(gnssSvids, visibleCount);
+        float[] carrierFreq = getRandomLength(gnssCarrierFrequencies, visibleCount);
+        float[] cn0 = getRandomLength(gnssCn0DbHz, visibleCount);
+        float[] elev = getRandomLength(gnssElevations, visibleCount);
+        float[] azim = getRandomLength(gnssAzimuths, visibleCount);
+
+        // Modern IGnssStatusListener consumers (R+).
+        try {
+            HashMap<Object, String> gnssMap = gnssStatusListenerPackages;
+            synchronized (gnssMap) {
+                for (Object listener : new ArrayList<>(gnssMap.keySet())) {
+                    String pkg = gnssMap.get(listener);
+                    if (pkg == null || !isAllowMockPackage(pkg, "f")) {
+                        continue;
+                    }
+                    Object proxyOrTarget = getProxyListener(listener);
+                    if (proxyOrTarget == null) proxyOrTarget = listener;
+                    // Android 12+ delivers SV-status as a single GnssStatus
+                    // object. Try this signature first because the legacy
+                    // tuple-form was removed from IGnssStatusListener.aidl in
+                    // S+, and reaching it via reflection on R+ throws
+                    // NoSuchMethodException anyway.
+                    boolean delivered = false;
+                    try {
+                        ReflectionUtils.invokeMethod(
+                                proxyOrTarget,
+                                iGnssStatusListenerClass,
+                                "onSvStatusChanged",
+                                new Class[]{GnssStatus.class},
+                                new Object[]{buildSyntheticGnssStatus()}
+                        );
+                        delivered = true;
+                    } catch (Throwable ignored) {
+                    }
+                    if (!delivered) {
+                        // Pre-R devices: 6-arg array form.
+                        try {
+                            ReflectionUtils.invokeMethod(
+                                    proxyOrTarget,
+                                    iGnssStatusListenerClass,
+                                    "onSvStatusChanged",
+                                    new Class[]{Integer.TYPE, int[].class, float[].class, float[].class, float[].class, float[].class},
+                                    new Object[]{Integer.valueOf(visibleCount), svids, cn0, elev, azim, carrierFreq}
+                            );
+                            delivered = true;
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                    if (!delivered) {
+                        // Older 5-arg form.
+                        try {
+                            ReflectionUtils.invokeMethod(
+                                    proxyOrTarget,
+                                    iGnssStatusListenerClass,
+                                    "onSvStatusChanged",
+                                    new Class[]{Integer.TYPE, int[].class, float[].class, float[].class, float[].class},
+                                    new Object[]{64, svidsForStatus, cn0ForStatus, elevForStatus, azimForStatus}
+                            );
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                    try {
+                        ReflectionUtils.invokeMethod(
+                                proxyOrTarget,
+                                iGnssStatusListenerClass,
+                                "onFirstFix",
+                                new Class[]{Integer.TYPE},
+                                new Object[]{Integer.valueOf(firstFixMillis)}
+                        );
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
+        } catch (Throwable th) {
+            th.printStackTrace();
+        }
+
+        // Legacy IGpsStatusListener consumers (Q-).
+        try {
+            HashMap<Object, String> gpsMap = gpsStatusListenerPackages;
+            synchronized (gpsMap) {
+                for (Object listener : new ArrayList<>(gpsMap.keySet())) {
+                    String pkg = gpsMap.get(listener);
+                    if (pkg == null || !isAllowMockPackage(pkg, "f")) {
+                        continue;
+                    }
+                    Object proxyOrTarget = getProxyListener(listener);
+                    if (proxyOrTarget == null) proxyOrTarget = listener;
+                    try {
+                        // GpsStatus.GPS_EVENT_FIRST_FIX = 3, GPS_EVENT_SATELLITE_STATUS = 4
+                        ReflectionUtils.invokeMethod(
+                                proxyOrTarget,
+                                iGpsStatusListenerClass,
+                                "onGpsStatusChanged",
+                                new Class[]{Integer.TYPE},
+                                new Object[]{4}
+                        );
+                        ReflectionUtils.invokeMethod(
+                                proxyOrTarget,
+                                iGpsStatusListenerClass,
+                                "onFirstFix",
+                                new Class[]{Integer.TYPE},
+                                new Object[]{Integer.valueOf(firstFixMillis)}
+                        );
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
+        } catch (Throwable th) {
+            th.printStackTrace();
+        }
     }
 
     public static void callLocationChanged(Location location) {

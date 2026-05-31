@@ -477,9 +477,9 @@ static int injectLibraryIntoProcess(int pid, const char *libraryPath, const char
       // doRun does the InjectDex JNI bring-up, which includes
       // DexClassLoader compile of the 33MB APK from inside system_server.
       // The first cold-cache run on the ZTE NX769J takes >5s, so allow a
-      // generous 60s window for this single call. After it completes
-      // we restore the default 5s timeout for any cleanup calls.
-      gCallTimeoutMs = 60000;
+      // generous 120s window for this single call. Subsequent cleanup
+      // calls go back to the default 5s timeout.
+      gCallTimeoutMs = 120000;
       callRemoteFunction(doRunRemote, 2, javaVm, remoteArg);
       gCallTimeoutMs = 5000;
       callRemoteFunction(gRemoteFree, 1, remoteArg);

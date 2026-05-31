@@ -434,7 +434,7 @@ static int injectLibraryIntoProcess(int pid, const char *libraryPath, const char
     if (doRunLocal && doRunRemote) {
       uint32_t remoteArg = writeRemoteString(entryArg);
       // doRun does the InjectDex JNI bring-up — see inject64.cpp comment.
-      gCallTimeoutMs = 60000;
+      gCallTimeoutMs = 120000;
       callRemoteFunction(doRunRemote, 2, javaVm, remoteArg);
       gCallTimeoutMs = 5000;
       callRemoteFunction(gRemoteFree, 1, remoteArg);

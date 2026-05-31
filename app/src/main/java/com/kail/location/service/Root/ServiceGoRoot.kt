@@ -523,6 +523,12 @@ class ServiceGoRoot : Service() {
                 runCatching {
                     svc.startMockLocation()
                     svc.setIntervalTimeout(currentLocationUpdateIntervalMs())
+                    // Enable GNSS / IGnssStatusListener mocking so consumers
+                    // see synthetic SV-status events alongside the spoofed
+                    // location. Without this flag the GnssStatusCallback*
+                    // proxies fall through to the real listener and leak
+                    // the actual constellation.
+                    svc.setMockGpsStatus(true)
                     KailLog.i(this, TAG, "FakeLocation startMockLocation invoked")
                 }.onFailure { KailLog.e(this, TAG, "startMockLocation (binder): ${it.message}") }
             }

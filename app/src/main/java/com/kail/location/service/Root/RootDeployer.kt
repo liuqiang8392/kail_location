@@ -158,10 +158,31 @@ object RootDeployer {
     }
 
     fun deployDexPayload(context: Context): Boolean {
-        val apkPath = context.applicationInfo.sourceDir ?: return false
         val dst = File(FAKELOC_DIR, "libfakeloc.so")
+        // Prefer the slim inject.dex we ship in assets — it contains only the
+        // FakeLocation bootstrap classes (com.kail.location.inject.* +
+        // com.kail.location.lib.lhooker.*), about 1-2 MB compared to the full
+        // 33 MB APK. system_server's DexClassLoader can verify that small dex
+        // in well under our 60 s ptrace watchdog window. The full APK path is
+        // only used as a fallback if assets/inject.dex is missing (older builds
+        // without the slim-dex Gradle task).
+        val slim = runCatching {
+            val out = File(context.cacheDir, "inject.dex")
+            context.assets.open("inject.dex").use { input ->
+                out.outputStream().use { input.copyTo(it) }
+            }
+            out
+        }.getOrNull()
+
         return runCatching {
-            ShellUtils.executeCommand("cp -f $apkPath ${dst.absolutePath}")
+            if (slim != null && slim.exists() && slim.length() > 0) {
+                ShellUtils.executeCommand("cp -f ${slim.absolutePath} ${dst.absolutePath}")
+                KailLog.i(null, TAG, "deployDexPayload: using slim inject.dex (${slim.length()} bytes)")
+            } else {
+                val apkPath = context.applicationInfo.sourceDir ?: return@runCatching false
+                ShellUtils.executeCommand("cp -f $apkPath ${dst.absolutePath}")
+                KailLog.w(null, TAG, "deployDexPayload: assets/inject.dex missing; falling back to full APK ($apkPath)")
+            }
             ShellUtils.executeCommand("chmod 644 ${dst.absolutePath}")
             ShellUtils.executeCommand("chcon u:object_r:system_file:s0 ${dst.absolutePath}")
             dst.exists() && dst.length() > 0

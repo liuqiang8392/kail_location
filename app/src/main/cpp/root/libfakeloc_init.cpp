@@ -13,6 +13,9 @@
 //     - load com.kail.location.inject.fakelocation.InjectDex
 //     - call InjectDex.init(context) reflectively
 
+#include <cstdio>
+#include <cstdlib>
+
 #include "fakeloc_common.h"
 
 using namespace fakeloc;
@@ -22,6 +25,19 @@ static bool gInitLoaded = false;     // byte_7038
 
 // ---------------------------------------------------------------------------
 // init  (sub_2430)
+// ---------------------------------------------------------------------------
+//
+// Loads the slim inject dex via InMemoryDexClassLoader (a ByteBuffer-backed
+// loader) instead of DexClassLoader. This matters a lot inside system_server
+// on Android 14: DexClassLoader insists on writing an optimized .vdex/.odex
+// into its optimizedDirectory, but system_server is SELinux-confined and the
+// write to /data/kail-loc/oat/ is denied. ART then spins for the entire
+// ptrace watchdog window (~2 min) before giving up, freezing and ultimately
+// killing the framework.
+//
+// InMemoryDexClassLoader runs the dex straight from memory (interpreter /
+// in-memory JIT) with no on-disk oat, so there is nothing to deny and the
+// load completes in milliseconds.
 // ---------------------------------------------------------------------------
 static void init(JNIEnv *env) {
   __android_log_print(ANDROID_LOG_INFO, kLogTag, "InitApp is Executing");
@@ -35,35 +51,96 @@ static void init(JNIEnv *env) {
   if (verifyReleaseSignature(env) != 0)
     return;
 
-  jstring optDir  = env->NewStringUTF(kOptDir);
-  jstring dexPath = env->NewStringUTF(kPayloadPath);
-
-  jclass dclClass = env->FindClass("dalvik/system/DexClassLoader");
-  jmethodID dclCtor = env->GetMethodID(
-      dclClass, "<init>",
-      "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/ClassLoader;)V");
-  jmethodID dclLoad = env->GetMethodID(
-      dclClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
-
   jobject context = getGlobalContext(env);
   jclass ctxClass = env->FindClass("android/content/Context");
   jmethodID getCl = env->GetMethodID(ctxClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
   jobject parentLoader = env->CallObjectMethod(context, getCl);
 
-  jobject loader = env->NewObject(dclClass, dclCtor, dexPath, optDir, nullptr, parentLoader);
+  // Read the slim dex bytes from /data/kail-loc/libfakeloc.so into a direct
+  // ByteBuffer. The file is a bare .dex (RootDeployer deploys the raw dex,
+  // not a zip, for the in-memory path).
+  jobject loader = nullptr;
+  FILE *fp = fopen(kPayloadPath, "rb");
+  if (fp) {
+    fseek(fp, 0, SEEK_END);
+    long sz = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    if (sz > 0) {
+      void *buf = malloc((size_t)sz);
+      if (buf && fread(buf, 1, (size_t)sz, fp) == (size_t)sz) {
+        jobject byteBuffer = env->NewDirectByteBuffer(buf, sz);
+        jclass imdclClass = env->FindClass("dalvik/system/InMemoryDexClassLoader");
+        if (imdclClass && byteBuffer) {
+          jmethodID imdclCtor = env->GetMethodID(
+              imdclClass, "<init>",
+              "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V");
+          if (imdclCtor) {
+            loader = env->NewObject(imdclClass, imdclCtor, byteBuffer, parentLoader);
+            if (env->ExceptionCheck()) {
+              env->ExceptionDescribe();
+              env->ExceptionClear();
+              loader = nullptr;
+            }
+          }
+        }
+        // NB: the direct ByteBuffer keeps referencing `buf`; ART copies the
+        // dex into its own memory during construction, but to be safe we do
+        // not free `buf` until after the loader is built. Freeing here is
+        // fine because InMemoryDexClassLoader has already mapped the data.
+        if (loader) free(buf);
+        else { /* keep buf around on failure path; small one-shot leak */ }
+      } else if (buf) {
+        free(buf);
+      }
+    }
+    fclose(fp);
+  }
+
+  if (!loader) {
+    // Fallback: legacy DexClassLoader over the same path (works if the file
+    // is actually a zip/apk and the opt dir is writable).
+    __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                        "InMemoryDexClassLoader failed; falling back to DexClassLoader");
+    jstring optDir  = env->NewStringUTF(kOptDir);
+    jstring dexPath = env->NewStringUTF(kPayloadPath);
+    jclass dclClass = env->FindClass("dalvik/system/DexClassLoader");
+    jmethodID dclCtor = env->GetMethodID(
+        dclClass, "<init>",
+        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/ClassLoader;)V");
+    loader = env->NewObject(dclClass, dclCtor, dexPath, optDir, nullptr, parentLoader);
+    env->DeleteLocalRef(optDir);
+    env->DeleteLocalRef(dexPath);
+    env->DeleteLocalRef(dclClass);
+  }
+
+  if (!loader) {
+    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "failed to build any class loader");
+    return;
+  }
+
+  jclass loaderClass = env->GetObjectClass(loader);
+  jmethodID dclLoad = env->GetMethodID(
+      loaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
 
   jstring injectClassName = env->NewStringUTF("com.kail.location.inject.fakelocation.InjectDex");
   jclass injectClass = (jclass)env->CallObjectMethod(loader, dclLoad, injectClassName);
+  if (env->ExceptionCheck()) {
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "failed to load InjectDex class");
+    return;
+  }
 
   jmethodID initMethod = env->GetStaticMethodID(
       injectClass, "init", "(Ljava/lang/Object;)[Ljava/lang/Object;");
   env->CallStaticObjectMethod(injectClass, initMethod, context);
+  if (env->ExceptionCheck()) {
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+  }
 
   __android_log_print(ANDROID_LOG_INFO, kLogTag, "InitApp is finished.");
 
-  env->DeleteLocalRef(optDir);
-  env->DeleteLocalRef(dexPath);
-  env->DeleteLocalRef(dclClass);
   env->DeleteLocalRef(context);
   env->DeleteLocalRef(ctxClass);
   env->DeleteLocalRef(parentLoader);

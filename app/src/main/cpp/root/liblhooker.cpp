@@ -385,7 +385,14 @@ Java_com_kail_location_lib_lhooker_LHooker_hookMethodNative(
     memcpy((void *)backup2Method, (void *)targetMethod, gArtMethodSize);
     rc += installHook(backupMethod, backup2Method);
     if (gSdkInt >= 30) {
-      setPrivate(backupMethod);
+      // FakeLocation 1.50 sets kAccPrivate on the *copy* (v13 in the IDA
+      // dump) and the *hook* (v39), NOT the backup. Setting kAccPrivate on
+      // backup2/copy keeps ART from including the now-clobbered method in
+      // public-method tables (its dex_method_index_ no longer matches its
+      // class's method id table after the memcpy, so any reflective lookup
+      // would dereference a bogus DexCache slot and SIGSEGV during class
+      // verification).
+      setPrivate(backup2Method);
       setPrivate(hookMethod);
     }
   }
