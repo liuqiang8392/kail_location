@@ -291,6 +291,20 @@ class RouteSimulationViewModel(application: Application) : AndroidViewModel(appl
             val currentRunMode = sharedPreferences.getString("setting_run_mode", "root") ?: "root"
             _runMode.value = currentRunMode
 
+            // ROOT 模式靠 ptrace 注入 system_server；刚开机时注入会卡死/重启系统。
+            // 开机时长不足时拒绝启动并提示，避免设备卡死。
+            if (currentRunMode == "root") {
+                val (ready, remainSec) = UsageManager.systemReadiness()
+                if (!ready) {
+                    _toastMessage.value = app.getString(
+                        R.string.vm_system_not_ready,
+                        UsageManager.bootReadyThresholdSeconds(),
+                        remainSec
+                    )
+                    return@launch
+                }
+            }
+
             if (settings.value.stepFreqSimulation) {
                 if (currentRunMode != "root" && currentRunMode != "xposed") {
                     _toastMessage.value = app.getString(R.string.vm_step_root_required)

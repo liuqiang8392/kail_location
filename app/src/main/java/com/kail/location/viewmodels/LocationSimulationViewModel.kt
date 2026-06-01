@@ -136,6 +136,23 @@ class LocationSimulationViewModel(application: Application) : AndroidViewModel(a
                 // 关键修复：启动前强制同步一次最新的运行模式
                 val currentRunMode = sharedPreferences.getString("setting_run_mode", "developer") ?: "developer"
                 _runMode.value = currentRunMode
+
+                // ROOT 模式靠 ptrace 注入 system_server；刚开机时注入会卡死/重启系统。
+                // 开机时长不足时拒绝启动并提示，避免设备卡死。
+                if (currentRunMode == "root") {
+                    val (ready, remainSec) = UsageManager.systemReadiness()
+                    if (!ready) {
+                        GoUtils.DisplayToast(
+                            app,
+                            app.getString(
+                                R.string.vm_system_not_ready,
+                                UsageManager.bootReadyThresholdSeconds(),
+                                remainSec
+                            )
+                        )
+                        return@launch
+                    }
+                }
                 
                 try {
                     val wgs84 = MapUtils.bd2wgs(info.longitude, info.latitude)

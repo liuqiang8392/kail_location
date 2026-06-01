@@ -41,6 +41,17 @@ fun NfcSimulationScreen(
     val context = LocalContext.current
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    // Run mode is shared app-wide via the default SharedPreferences
+    // ("setting_run_mode"). Reflect the current selection in the side menu and
+    // persist changes so the NFC page's menu tracks the mode like every other
+    // screen, instead of being hardcoded to "root".
+    val appPrefs = remember {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+    }
+    var runMode by remember {
+        mutableStateOf(appPrefs.getString("setting_run_mode", "developer") ?: "developer")
+    }
     
     val nfcEnabled by viewModel.nfcEnabled.collectAsState()
     val tagId by viewModel.tagId.collectAsState()
@@ -110,8 +121,15 @@ fun NfcSimulationScreen(
                 currentScreen = "NfcSimulation",
                 onNavigate = onNavigate,
                 appVersion = appVersion,
-                runMode = "root",
-                onRunModeChange = {},
+                runMode = runMode,
+                onRunModeChange = { mode ->
+                    runMode = mode
+                    appPrefs.edit().putString("setting_run_mode", mode).apply()
+                },
+                onDeveloperModeSelected = {
+                    runMode = "developer"
+                    appPrefs.edit().putString("setting_run_mode", "developer").apply()
+                },
                 scope = scope
             )
         }

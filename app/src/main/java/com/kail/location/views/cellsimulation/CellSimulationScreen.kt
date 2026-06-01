@@ -54,6 +54,16 @@ fun CellSimulationScreen(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
+    // Reflect & persist the shared run mode so the side menu tracks the current
+    // mode instead of being hardcoded to "root".
+    val cellContext = androidx.compose.ui.platform.LocalContext.current
+    val appPrefs = remember {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(cellContext)
+    }
+    var runMode by remember {
+        mutableStateOf(appPrefs.getString("setting_run_mode", "developer") ?: "developer")
+    }
+
     LaunchedEffect(networkError) {
         networkError?.let {
             snackbarHostState.showSnackbar(it)
@@ -70,8 +80,15 @@ fun CellSimulationScreen(
                 currentScreen = "CellSimulation",
                 onNavigate = onNavigate,
                 appVersion = appVersion,
-                runMode = "root",
-                onRunModeChange = {},
+                runMode = runMode,
+                onRunModeChange = { mode ->
+                    runMode = mode
+                    appPrefs.edit().putString("setting_run_mode", mode).apply()
+                },
+                onDeveloperModeSelected = {
+                    runMode = "developer"
+                    appPrefs.edit().putString("setting_run_mode", "developer").apply()
+                },
                 scope = scope
             )
         }
