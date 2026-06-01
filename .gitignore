@@ -32,7 +32,7 @@ local.properties
 *.keystore
 
 CLAUDE.md
-docs/
+
 do/
 # Added by code-review-graph
 .code-review-graph/

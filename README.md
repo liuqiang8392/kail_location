@@ -80,6 +80,16 @@
 
 ---
 
+## 常见问题
+
+### 1.搜索功能 / 模拟导航不能用
+
+请检查是否已配置 **百度地图 API Key**。搜索和导航依赖百度地图 SDK，需申请并填入 AK。
+
+参考申请教程：[docs/baiduApiKey.md](docs/baiduApiKey.md)
+
+---
+
 ## 联系作者
 
 - Telegram: https://t.me/kaillocation

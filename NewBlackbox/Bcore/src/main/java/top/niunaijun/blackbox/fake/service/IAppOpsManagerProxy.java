@@ -1,7 +1,9 @@
 package top.niunaijun.blackbox.fake.service;
 
 import android.app.AppOpsManager;
+import android.app.SyncNotedAppOp;
 import android.content.Context;
+import android.os.Build;
 import android.os.IBinder;
 
 import java.lang.reflect.Method;
@@ -44,35 +46,112 @@ public class IAppOpsManagerProxy extends BinderInvocationStub {
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         String methodName = method.getName();
-        
-        
-        
-        if (methodName.startsWith("check") || 
-            methodName.startsWith("note") || 
+
+        // Bypass all AppOps permission checks by allowing the operation. The tricky
+        // part is the RETURN TYPE: on Android 11+ (API 30) several IAppOpsService
+        // methods (noteOperation/startOperation/noteProxyOperation/startProxyOperation)
+        // return a SyncNotedAppOp object instead of an int mode. Returning a bare int
+        // there triggers a ClassCastException inside the framework's JNI binder call,
+        // which becomes a fatal native abort and kills the sandbox process.
+        // So we build the allowed result according to the method's declared return type.
+        if (methodName.startsWith("check") ||
+            methodName.startsWith("note") ||
             methodName.startsWith("start")) {
             Slog.d(TAG, "AppOps invoke: Bypassing system for " + methodName + ", allowing operation");
-            return AppOpsManager.MODE_ALLOWED;
+            return buildAllowedResult(method, args);
         }
-        
-        
+
+
         if (methodName.startsWith("finish")) {
             Slog.d(TAG, "AppOps invoke: Bypassing system for " + methodName);
             return null;
         }
-        
-        
+
+
         try {
             MethodParameterUtils.replaceFirstAppPkg(args);
             MethodParameterUtils.replaceLastUid(args);
             return super.invoke(proxy, method, args);
         } catch (SecurityException e) {
-            
+
             Slog.w(TAG, "AppOps invoke: SecurityException caught for " + methodName + ", allowing operation", e);
-            return AppOpsManager.MODE_ALLOWED;
+            return buildAllowedResult(method, args);
         } catch (Exception e) {
             Slog.e(TAG, "AppOps invoke: Error in method " + methodName, e);
-            
-            return AppOpsManager.MODE_ALLOWED;
+
+            return buildAllowedResult(method, args);
+        }
+    }
+
+    /**
+     * Builds an "operation allowed" return value matching the declared return type of
+     * {@code method}. For methods that return {@link SyncNotedAppOp} (API 30+), a real
+     * SyncNotedAppOp with {@code MODE_ALLOWED} is constructed; otherwise the int mode
+     * {@link AppOpsManager#MODE_ALLOWED} is returned.
+     */
+    private static Object buildAllowedResult(Method method, Object[] args) {
+        Class<?> returnType = method.getReturnType();
+        if (returnType == void.class) {
+            return null;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                && SyncNotedAppOp.class.isAssignableFrom(returnType)) {
+            return buildSyncNotedAppOp(args);
+        }
+        return AppOpsManager.MODE_ALLOWED;
+    }
+
+    /**
+     * Constructs a {@link SyncNotedAppOp} representing an allowed op. The op code is
+     * extracted from the call arguments when possible so callers that inspect the
+     * returned op (e.g. via {@code getOp()}) see a consistent value.
+     *
+     * The only constructor that lets us set the op mode to {@code MODE_ALLOWED} is the
+     * hidden 4-arg one (the public constructors default to {@code MODE_IGNORED}, which
+     * would make the framework treat the op as denied), so we reach it via reflection.
+     */
+    private static SyncNotedAppOp buildSyncNotedAppOp(Object[] args) {
+        int opCode = 0;
+        if (args != null) {
+            for (Object arg : args) {
+                if (arg instanceof Integer) {
+                    opCode = (Integer) arg;
+                    break;
+                }
+            }
+        }
+        if (opCode < 0 || opCode >= NUM_OP) {
+            opCode = 0;
+        }
+        // Hidden 4-arg constructor: SyncNotedAppOp(int opMode, int opCode, String attributionTag, String packageName)
+        try {
+            java.lang.reflect.Constructor<SyncNotedAppOp> ctor = SyncNotedAppOp.class
+                    .getConstructor(int.class, int.class, String.class, String.class);
+            return ctor.newInstance(AppOpsManager.MODE_ALLOWED, opCode, null, "android");
+        } catch (Throwable t) {
+            Slog.e(TAG, "AppOps: failed to construct allowed SyncNotedAppOp via reflection", t);
+        }
+        // Fallback: public 2-arg constructor (mode defaults to MODE_IGNORED, but at least
+        // returns the correct type so the framework's cast does not abort the process).
+        try {
+            return new SyncNotedAppOp(opCode, null);
+        } catch (Throwable t2) {
+            Slog.e(TAG, "AppOps: failed to construct SyncNotedAppOp", t2);
+            return null;
+        }
+    }
+
+    /** Upper bound for op codes; mirrors AppOpsManager._NUM_OP validation. */
+    private static final int NUM_OP = resolveNumOp();
+
+    private static int resolveNumOp() {
+        try {
+            java.lang.reflect.Field f = AppOpsManager.class.getDeclaredField("_NUM_OP");
+            f.setAccessible(true);
+            return f.getInt(null);
+        } catch (Throwable t) {
+            // Reasonable upper bound covering all known op codes across API levels.
+            return 200;
         }
     }
 
