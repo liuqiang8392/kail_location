@@ -29,7 +29,7 @@
 
   ![](../assets/baiduApiKey3.png)
 
-- **Android 签名证书指纹 (SHA1)**: 填写:
+- **Android 发布版(SHA1)**: 填写: D6:17:51:4C:73:50:22:C6:05:05:82:16:D5:87:6E:14:C3:36:7E:4C
 - **包名**: 填写应用的包名，`com.kail.location`
 
   ![](../assets/baiduApiKey4.png)
