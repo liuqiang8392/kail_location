@@ -3,36 +3,31 @@ name: Build Android App
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+      # 如果不想修改仓库，可以在这里用 sed 替换为正确版本
+      - name: Fix KSP version
+        run: |
+          # 假设 kotlin 版本为 2.0.21，对应的 KSP 为 2.0.21-1.0.27
+          sed -i 's/version "2.3.0"/version "2.0.21-1.0.27"/g' build.gradle.kts
 
-    # 自动修正 KSP 版本（请将版本号改为与你 Kotlin 匹配的）
-    - name: Fix KSP version
-      run: |
-        sed -i 's/version "2.3.0"/version "2.0.20-1.0.25"/g' build.gradle.kts
+      - name: Grant execute permission
+        run: chmod +x gradlew
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      - name: Build APK
+        run: ./gradlew assembleDebug
 
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-debug-apk
-        path: app/build/outputs/apk/debug/*.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
