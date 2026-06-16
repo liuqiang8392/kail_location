@@ -3,32 +3,28 @@ name: Build Android App
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # 可选，消除 Node.js 警告
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 修正 KSP 版本为兼容 Kotlin 2.2.0 的版本
-      - name: Fix KSP version
+      # 自动修复 KSP 版本和仓库配置
+      - name: Fix KSP configuration
         run: |
-          # 将原版本（可能是 2.3.0 或 2.0.21...）替换为 2.2.0-1.0.31
-          sed -i 's/version "2.0.21-1.0.27"/version "2.2.0-1.0.31"/g' build.gradle.kts
-          # 如果原始是 "2.3.0"，也需要替换，可以多加一条
-          sed -i 's/version "2.3.0"/version "2.2.0-1.0.31"/g' build.gradle.kts
+          # 1. 修正 KSP 版本号
+          sed -i 's/version "2.2.0-1.0.31"/version "2.2.0-2.0.2"/g' build.gradle.kts
+          
+          # 2. 确保 settings.gradle.kts 中包含 google() 仓库
+          if ! grep -q "google()" settings.gradle.kts; then
+            sed -i '/pluginManagement {/a \    repositories {\n        google()\n        mavenCentral()\n        gradlePluginPortal()\n    }' settings.gradle.kts
+          fi
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
