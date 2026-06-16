@@ -1,5 +1,8 @@
 pluginManagement {
     repositories {
+        gradlePluginPortal()   // KSP 主要发布在这里
+        mavenCentral()
+        google()
         maven { url = uri("https://www.jitpack.io") }
         maven { url = uri("https://maven.aliyun.com/repository/releases") }
         maven { url = uri("https://maven.aliyun.com/repository/google") }
