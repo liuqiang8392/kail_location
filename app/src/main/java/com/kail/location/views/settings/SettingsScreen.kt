@@ -119,6 +119,7 @@ fun SettingsScreen(
     val stepSimEnabled by viewModel.stepSimEnabled.collectAsState()
     val simScheme by viewModel.simScheme.collectAsState()
     val opencellidApiKey by viewModel.opencellidApiKey.collectAsState()
+    val selinuxPermissiveEnabled by viewModel.selinuxPermissiveEnabled.collectAsState()
 
     Scaffold(
         topBar = {
@@ -267,6 +268,13 @@ fun SettingsScreen(
 
             // ===== Group: 日志/其他 =====
             PreferenceCategory(title = stringResource(R.string.setting_group_other))
+
+            SwitchPreference(
+                title = stringResource(R.string.setting_selinux_permissive),
+                checked = selinuxPermissiveEnabled,
+                onCheckedChange = { viewModel.updateBooleanPreference(SettingsViewModel.KEY_SELINUX_PERMISSIVE, it) },
+                summary = stringResource(R.string.setting_selinux_permissive_summary)
+            )
 
             EditTextPreference(
                 title = stringResource(R.string.setting_baidu_key),

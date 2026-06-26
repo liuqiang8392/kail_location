@@ -215,8 +215,35 @@ object RootDeployer {
     }
 
     fun bootstrapInjectionVerbose(context: Context?): Pair<Boolean, String> {
+        // 读取"注入期间临时改宽容模式"开关。
+        //   - 开启：注入前 setenforce 0；finally 里 setenforce 1 还原。
+        //   - 关闭：完全不动 SELinux（既不切宽容，也不强制切回 Enforcing），
+        //     保持系统原本状态。注入若因 SELinux 阻塞会失败，但行为上更"安静"，
+        //     不会对系统做任何全局副作用。
+        // context 为 null 时（外部直接调无参 bootstrapInjectionVerbose()）按"关闭"处理。
+        val selinuxPermissiveDuringInject = context?.let {
+            runCatching {
+                PreferenceManager.getDefaultSharedPreferences(it)
+                    .getBoolean(SettingsViewModel.KEY_SELINUX_PERMISSIVE, false)
+            }.getOrDefault(false)
+        } ?: false
+        var prevEnforce: String? = null
         return try {
             if (!ShellUtils.hasRoot()) return false to "su 不可用（未授权 ROOT）"
+            if (selinuxPermissiveDuringInject) {
+                // Temporarily drop SELinux to permissive for the injection window only.
+                // Android 15 sepolicy denies system_server execute/map on system_file,
+                // so the remote dlopen() of /data/kail-loc/libfakeloc_init_*.so silently
+                // fails (remote base = 0 -> doRunRemote = 0 -> "doRun resolve failed").
+                // The finally block restores enforcing immediately after kail_inject
+                // returns, so the permissive window is only ~the ptrace duration.
+                // Already-mapped .so segments stay loaded after we flip back.
+                prevEnforce = ShellUtils.executeCommand("getenforce").trim()
+                ShellUtils.executeCommand("setenforce 0")
+                KailLog.i(null, TAG, "bootstrapInjection: SELinux $prevEnforce -> Permissive (injection window, opt-in)")
+            } else {
+                KailLog.i(null, TAG, "bootstrapInjection: SELinux passthrough (permissive switch off)")
+            }
             val injector = File(STAGING_DIR, INJECTOR_BIN)
             val initLoader = File(FAKELOC_DIR, "libfakeloc_init.so")
             if (!injector.exists()) {
@@ -259,7 +286,12 @@ object RootDeployer {
             }
             ok to detail
         } finally {
-            ShellUtils.executeCommand("setenforce 1")
+            if (selinuxPermissiveDuringInject) {
+                ShellUtils.executeCommand("setenforce 1")
+                val nowEnforce = ShellUtils.executeCommand("getenforce").trim()
+                KailLog.i(null, TAG, "bootstrapInjection: SELinux restored -> $nowEnforce (was $prevEnforce before inject)")
+            }
+            // 开关关闭时刻意不调用 setenforce，避免对未参与切换的系统状态产生副作用。
         }
     }
 
