@@ -83,7 +83,7 @@ public class ILocationManagerProxy extends BinderInvocationStub {
             if (BLocationManager.isFakeLocationEnable()) {
                 return BLocationManager.get().getLocation(BActivityThread.getUserId(), BActivityThread.getAppPackageName()).convert2SystemLocation();
             }
-            
+
             
             try {
                 return method.invoke(who, args);

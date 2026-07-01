@@ -38,9 +38,11 @@
 
 ## Documentation
 
-
 - [中文说明](README.md)
 - [English README](README_EN.md)
+- [Developer Docs](docs/README.md) — architecture & development guides (Chinese)
+  - [Full Technical Doc](docs/项目技术文档.md) — architecture, run modes, call chains, native injection, Xposed
+  - [Baidu Map API Key](docs/baiduApiKey.md)
 
 ---
 
@@ -111,10 +113,10 @@ See the guide: [docs/baiduApiKey.md](docs/baiduApiKey.md)
 
 ## Support the Author
 
-<img width="538" height="397" alt="Donate" src="https://github.com/user-attachments/assets/eca818b7-d450-4c0b-ae21-c1ad9f493684" />
+<img width="538" height="397" alt="Donate QR" src="./assets/1767779394823.png" />
 
 ```text
-TVvudxmNTwzRFe3z7ts9srZE1srkqXgmxm
+0x549928ea1ab2407bcba7bdde7b6a62a6e5a68e08f9bbe798ed151cef086da883
 ```
 
 ---

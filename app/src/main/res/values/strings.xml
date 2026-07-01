@@ -265,6 +265,8 @@
     <string name="setting_target_packages">目标应用包名</string>
     <string name="setting_target_packages_summary">逗号分隔，仅在全局模式关闭时生效。例：com.autonavi.minimap</string>
     <string name="setting_baidu_key">百度地图 Key (需重启生效)</string>
+    <string name="setting_selinux_permissive">注入时临时关闭 SELinux</string>
+    <string name="setting_selinux_permissive_summary">开启后注入 system_server 时短暂切到宽容模式，完成后立即恢复强制模式；关闭则不改动 SELinux 状态。Android 14/15 上注入失败时打开本项可解决</string>
     <string name="setting_opencellid_key">OpenCellID API Key</string>
     <string name="setting_opencellid_key_summary">用于通过经纬度查询周边基站，需先在 opencellid.org 注册获取</string>
     <string name="setting_enable_log">启用日志</string>
@@ -616,8 +618,8 @@
     <string name="sponsor_credit_card">信用卡/银行卡</string>
     <string name="sponsor_wechat_pay">微信支付</string>
     <string name="sponsor_support_title">赞助支持</string>
-    <string name="sponsor_tron_hint">您也可以直接通过 TRON USDT 赞助：</string>
-    <string name="sponsor_copy_tron_address">复制 TRON 地址</string>
+    <string name="sponsor_aptos_hint">您也可以直接通过 Aptos 链赞助：</string>
+    <string name="sponsor_copy_aptos_address">复制 Aptos 地址</string>
 
     <!-- Login Screen -->
     <string name="login_hint_text">仅支持 QQ 邮箱与谷歌邮箱，输入验证码即可登录或自动注册</string>

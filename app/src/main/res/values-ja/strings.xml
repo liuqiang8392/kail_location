@@ -213,6 +213,8 @@
     <string name="setting_target_packages">対象アプリのパッケージ名</string>
     <string name="setting_target_packages_summary">カンマ区切り、グローバルモードがオフの場合のみ有効。例: com.autonavi.minimap</string>
     <string name="setting_baidu_key">Baidu Map Key（再起動が必要）</string>
+    <string name="setting_selinux_permissive">注入中だけ SELinux を Permissive に</string>
+    <string name="setting_selinux_permissive_summary">オンにすると system_server への注入中だけ SELinux を一時的に Permissive に切り替え、完了後すぐに Enforcing に戻します。オフのときは SELinux を変更しません。Android 14/15 で注入失敗するときに有効。</string>
     <string name="setting_enable_log">ログを有効化</string>
     <string name="setting_enable_log_summary">低頻度ログと重要な状態ログをローカルファイルに保存します</string>
     <string name="setting_enable_debug_log">詳細デバッグログを有効化</string>
@@ -413,8 +415,8 @@
     <string name="sponsor_credit_card">クレジット/デビットカード</string>
     <string name="sponsor_wechat_pay">WeChat Pay</string>
     <string name="sponsor_support_title">スポンサー</string>
-    <string name="sponsor_tron_hint">TRON USDT でのスポンサーも受け付けています：</string>
-    <string name="sponsor_copy_tron_address">TRON アドレスをコピー</string>
+    <string name="sponsor_aptos_hint">Aptos チェーンでのスポンサーも受け付けています：</string>
+    <string name="sponsor_copy_aptos_address">Aptos アドレスをコピー</string>
 
     <!-- Login Screen -->
     <string name="login_hint_text">QQ メールと Gmail のみ対応。認証コードを入力してログインまたは自動登録。</string>
