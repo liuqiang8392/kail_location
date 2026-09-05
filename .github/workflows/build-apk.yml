@@ -1,0 +1,211 @@
+# ============================================================================
+# Kail Location — GitHub Actions 工作流：一键编译 APK
+#
+# 说明 / 关键点：
+#  1) 本项目是多模块 Android 工程(app + NewBlackbox:Bcore / black-reflection /
+#     compiler)，其中 NewBlackbox/Bcore/build.gradle 显式要求：
+#       externalNativeBuild { ndkBuild ...; ndkVersion = "29.0.13846066" }
+#     因此必须安装 NDK 29.0.13846066，否则 Bcore 编译会失败。
+#  2) Bcore 模块把 source/target 设为 Java 21（JavaVersion.VERSION_21），而要
+#     让 javac 能输出 -target 21，Gradle daemon 必须跑在 JDK 21+ 上。
+#     -> 使用 Java 21。
+#  3) compileSdk = 36 / targetSdk = 36，需要 platforms;android-36。
+#  4) app 模块里最复杂的 native/Slim-dex/改名打包逻辑在 release 与 debug 变体
+#     上都会被触发，所以无论是 assembleRelease 还是 assembleDebug 都会真正把
+#     C++ 部分编译并塞进 APK。
+#  5) 版本号取自 app/build.gradle.kts：versionName 1.7.1 / versionCode 45。
+#     默认打 assembleRelease；未配置签名时产出的是「未签名」release(可另用
+#     apksigner 补签) 或使用 debug 签名。
+#
+# 触发方式：
+#   - push 到 main/master 分支
+#   - 打 tag v*       （stable 版）
+#   - 手动触发 workflow_dispatch（最常用：仓库首页 Actions -> 本工作流 -> Run）
+#
+# 产物：
+#   - app-debug.apk
+#   - app-release.apk / app-release-unsigned.apk
+#   两种都可从本工作流的 Artifacts 页面下载。
+#
+# 可选：配置签名（不配置也能编译，产物为 debug/未签名）
+#   在仓库 Settings -> Secrets and variables -> Actions 添加：
+#     SIGNING_KEYSTORE_B64  （base64 编码的 keystore 文件）
+#     KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD
+#   开启后 release 会被这些密钥签名。
+# ============================================================================
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+  pull_request:
+    branches: [main, master]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+  workflow_dispatch:
+    inputs:
+      build_variant:
+        description: '要编译的变体：debug / release / both'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+          - both
+
+# 并发控制：同一分支同时只允许一个构建在跑，避免重复触发浪费资源。
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compile APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      # AGP / Kotlin / Bcore 都要求较新的 JDK；Bcore 目标 Java 21。
+      JAVA_VERSION: '21'
+      # native 构建需要的 -Xmx 给足（Slim-dex/D8/包合并都可能吃内存）
+      GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dfile.encoding=UTF-8'
+
+    steps:
+      # 1. 拉取仓库（含子模块开关按需 => Bcore 是 include 子Module，非 git submodule）
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. 安装 JDK（必须 >=21，因 Bcore 编译目标是 Java 21）
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      # 3. 初始化 Android SDK 环境变量(ANDROID_HOME / ANDROID_SDK_ROOT)
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 4. 用 sdkmanager 精确安装 CI 需要但镜像未预装的 SDK 组件。
+      #    - platforms;android-36 : compileSdk/targetSdk = 36
+      #    - ndk;29.x             : Bcore 明文固定 ndkVersion
+      #    - cmake;3.22.1         : app 的 externalNativeBuild(kail CMakeLists)
+      #    每一步都接受 license。
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          set -eux
+          # 接受所有 sdk license
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;29.0.13846066" \
+            "cmake;3.22.1" >/dev/null
+          # 打印 SDK 概览以便排查
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME"
+
+      # 5. Gradle 缓存（依赖 + wrapper + Kotlin/配置），大幅提速
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # 6.（可选）若配置了签名密钥，把它(base64)解码存到工作区，供下面第 9
+      #    步用 SDK 自带 apksigner 对 release 补签。不修改业务 build 脚本，
+      #    以免破坏常规本地开发构建。
+      - name: Prepare signing keystore (optional)
+        if: ${{ secrets.SIGNING_KEYSTORE_B64 != '' }}
+        shell: bash
+        env:
+          KS_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+        run: |
+          echo "$KS_B64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
+          test -s "$GITHUB_WORKSPACE/release.keystore"
+
+      # 7. 决定要跑哪些装配任务
+      - name: Resolve build tasks
+        id: resolve
+        shell: bash
+        run: |
+          variant="${{ github.event.inputs.build_variant || 'release' }}"
+          case "$variant" in
+            debug)  tasks="assembleDebug";;
+            both)   tasks="assembleDebug assembleRelease";;
+            release)
+              # PR 上只打 debug 会更快；发布路径(默认/manual/tag)走 release
+              if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+                tasks="assembleDebug"
+              else
+                tasks="assembleRelease"
+              fi
+              ;;
+          esac
+          echo "tasks=$tasks" >> "$GITHUB_OUTPUT"
+
+      # 8. 真正编译。native(NDK/CMake)+Slim-Dex(D8) 是重头，见工程 app/build.gradle.kts。
+      - name: Build with Gradle
+        shell: bash
+        env:
+          # 允许 Gradle 在我们缺任何 SDK 组件时自动补齐(联网下载)，license 已接受
+          ANDROID_USER_HOME: ~/.android
+        run: |
+          set -eux
+          # 多任务时开 worker 并行；单任务也稳定。
+          ./gradlew --no-daemon --stacktrace ${{ steps.resolve.outputs.tasks }}
+
+      # 9. 收集并（可选）补签 APK 产物，方便一起上传
+      - name: Collect APK artifacts
+        id: collect
+        shell: bash
+        env:
+          KS_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KS_KEYPASS: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -eux
+          mkdir -p apk-out
+
+          # debug
+          dbg="app/build/outputs/apk/debug/app-debug.apk"
+          [[ -f "$dbg" ]] && cp "$dbg" apk-out/ || true
+
+          # release（AGP 在未配置 release signingConfig 时默认会用 debug 签名，
+          # 因此通常产出可装的 app-release.apk；若出现 -unsigned 也一并收下）
+          rel_dir="app/build/outputs/apk/release"
+          if [[ -d "$rel_dir" ]]; then
+            cp "$rel_dir"/*.apk apk-out/ || true
+          fi
+
+          # 若仓库配置了签名密钥，则用 apksigner 重新签名 release 产物。
+          if [[ -n "${KS_B64:-}" ]]; then
+            if [[ -f "$GITHUB_WORKSPACE/release.keystore" ]]; then
+              release_apk=$(find apk-out -name 'app-release*.apk' | grep -v signed | head -n1)
+              if [[ -n "$release_apk" ]]; then
+                # Linux 下 apksigner 无可执行扩展名
+                "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
+                  --ks "$GITHUB_WORKSPACE/release.keystore" \
+                  --ks-pass "pass:${KS_PASS}" \
+                  --ks-key-alias "${KS_ALIAS}" \
+                  --key-pass "pass:${KS_KEYPASS}" \
+                  --out apk-out/app-release-keystore.apk "$release_apk"
+              fi
+            fi
+          fi
+
+          ls -lh apk-out/
+
+      # 10. 上传产物
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: kail-location-apk
+          path: apk-out/*.apk
+          if-no-files-found: error
+          retention-days: 14

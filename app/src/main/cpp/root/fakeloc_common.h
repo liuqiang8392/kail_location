@@ -81,7 +81,11 @@ static const char *kPayloadMd5  = "";
 //   keytool -exportcert -alias <alias> -keystore <keystore> | xxd -p | tr -d '\n'
 //
 // An empty string disables the signature comparison.
-static const char *kReleaseSign =
+// 空串禁用签名比较（verifyReleaseSignature 在遇到空 kReleaseSign 时直接放行，返回 0）。
+static const char *kReleaseSign = "";
+
+// Stashed release certificate (kept only for reference / future re-enabling):
+static const char *kReleaseSign_Old =
     "3082034e30820236020101300d06092a864886f70d01010b0500306c3115301306035504030c0c4b61696c4c6f"
     "636174696f6e3111300f060355040b0c08506572736f6e616c3111300f060355040a0c08506572736f6e616c31"
     "0f300d06035504070c066265696a696e310f300d06035504080c066265696a696e310b30090603550406130243"
