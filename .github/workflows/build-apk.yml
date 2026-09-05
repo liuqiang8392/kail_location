@@ -119,24 +119,42 @@ jobs:
       # 6.（可选）若配置了签名密钥，把它(base64)解码存到工作区，供下面第 9
       #    步用 SDK 自带 apksigner 对 release 补签。不修改业务 build 脚本，
       #    以免破坏常规本地开发构建。
+      #    注意：GitHub Actions 的 if: 条件不允许读 secrets，所以这里恒执行该
+      #    步，改在 shell 里用 ${KS_B64:-} 判断 secrets 是否为空。
       - name: Prepare signing keystore (optional)
-        if: ${{ secrets.SIGNING_KEYSTORE_B64 != '' }}
         shell: bash
         env:
           KS_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
         run: |
-          echo "$KS_B64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
-          test -s "$GITHUB_WORKSPACE/release.keystore"
+          if [[ -n "${KS_B64:-}" ]]; then
+            echo "$KS_B64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
+            test -s "$GITHUB_WORKSPACE/release.keystore"
+            echo "Keystore prepared."
+          else
+            echo "SIGNING_KEYSTORE_B64 not set; skipping release re-sign preparation."
+          fi
 
       # 7. 决定要跑哪些装配任务
+      #    注意：只有 workflow_dispatch/manual 触发时 github.event.inputs 才存在；
+      #    push/tag/PR 触发它会求值为空，这里用 shell 默认值兜底到 "release"。
       - name: Resolve build tasks
         id: resolve
         shell: bash
         run: |
-          variant="${{ github.event.inputs.build_variant || 'release' }}"
-          case "$variant" in
-            debug)  tasks="assembleDebug";;
-            both)   tasks="assembleDebug assembleRelease";;
+          set -eux
+          variant="release"
+          input_variant="${{ github.event.inputs.build_variant }}"
+          if [[ -n "${input_variant}" ]]; then
+            variant="${input_variant}"
+          fi
+
+          case "${variant}" in
+            debug)
+              tasks="assembleDebug"
+              ;;
+            both)
+              tasks="assembleDebug assembleRelease"
+              ;;
             release)
               # PR 上只打 debug 会更快；发布路径(默认/manual/tag)走 release
               if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -146,7 +164,7 @@ jobs:
               fi
               ;;
           esac
-          echo "tasks=$tasks" >> "$GITHUB_OUTPUT"
+          echo "tasks=${tasks}" >> "$GITHUB_OUTPUT"
 
       # 8. 真正编译。native(NDK/CMake)+Slim-Dex(D8) 是重头，见工程 app/build.gradle.kts。
       - name: Build with Gradle
