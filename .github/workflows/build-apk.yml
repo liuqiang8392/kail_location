@@ -85,20 +85,49 @@ jobs:
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
 
-      # 5) 授予 gradlew 执行权限并执行构建
-      #    通过 gradle wrapper 会按其下载匹配版本，我们在 cache 中缓存了 wrapper 与依赖。
-      - name: Build APK
+      # 5) 瓶颈诊断：KSP 插件 marker 只发布在 Maven Central(repo1) 和
+      #    Gradle Plugin Portal，**不发到 Google Maven(dl.google.com 404)**。
+      #    一旦 GitHub runner 到这些境外端点瞬时连不通，Gradle 便会报
+      #    "was not found"。此处先各打一次 HTTP 状态码，一眼定位是哪个端点
+      #    在该 job 里不可达(000/ERR=不通, 200=OK)。
+      - name: Diagnose KSP / Maven reachability
+        shell: bash
+        run: |
+          KSP="2.2.0-2.0.2"
+          P="com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin"
+          for u in \
+            "https://repo1.maven.org/maven2/$P/$KSP/$P-$KSP.pom" \
+            "https://plugins.gradle.org/m2/$P/$KSP/$P-$KSP.pom" \
+            "https://dl.google.com/android/maven2/$P/$KSP/$P-$KSP.pom" \
+            "https://maven.aliyun.com/repository/central/$P/$KSP/$P-$KSP.pom" \
+            "https://maven.aliyun.com/repository/google/$P/$KSP/$P-$KSP.pom" \
+            "https://www.jitpack.io/$P/$KSP/$P-$KSP.pom"; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$u" 2>/dev/null || echo ERR)
+            echo "$code  <-  $u"
+          done
+          echo "提示: KSP 2.2.x 在 repo1/plugins.gradle.org 应返回 200; dl.google 405/404 属正常(它不托管 KSP marker)"
+          echo "000/ERR 的端点是该次构建解析失败的真正元凶"
+
+      # 6) 真正编译。境外 Maven 链路偶发抖动 → 加 --refresh-dependencies
+      #    避免 Gradle 把上一次"缺失"判定缓存住，并整段最多重试 3 次自愈。
+      - name: Build APK (with retry)
+        shell: bash
         run: |
           chmod +x gradlew
-          if [ "${{ steps.type.outputs.build_type }}" = "release" ]; then
-            # 原生构建任务中新增 InjectSlimDex 依赖在 package/mergeAssets 阶段，
-            # 使用 --stacktrace 便于 CI 上定位问题
-            ./gradlew :app:assembleRelease --no-daemon --stacktrace --console=plain
-          else
-            ./gradlew :app:assembleDebug --no-daemon --stacktrace --console=plain
-          fi
+          BT="${{ steps.type.outputs.build_type }}"
+          if [ "$BT" = "release" ]; then TASK=":app:assembleRelease"; else TASK=":app:assembleDebug"; fi
+          attempts=1; max=3
+          while :; do
+            echo "======== Gradle attempt ${attempts}/${max} ========"
+            if ./gradlew "$TASK" --no-daemon --refresh-dependencies --stacktrace --console=plain; then
+              exit 0
+            fi
+            if [ "$attempts" -ge "$max" ]; then exit 1; fi
+            echo "Attempt ${attempts} failed; retrying in 20s..."; sleep 20
+            attempts=$((attempts + 1))
+          done
 
-      # 6) 收集构建产物统一拷贝到 apk/ 目录，方便上传与签名处理
+      # 7) 收集构建产物统一拷贝到 apk/ 目录，方便上传与签名处理
       - name: Gather APK outputs
         id: gather
         shell: bash
@@ -121,7 +150,7 @@ jobs:
             echo "::warning::No APK found under $SRC"
           fi
 
-      # 7) 可选：为 release 产出一个可直接安装的已签名 APK。
+      # 8) 可选：为 release 产出一个可直接安装的已签名 APK。
       #    仅在：
       #       - build_type = release
       #       - 且仓库已配置如下 Secrets 时生效：
@@ -167,7 +196,7 @@ jobs:
 
           echo "signed=yes"
 
-      # 8) 上传 APK 作为本次工作流的构建产物
+      # 9) 上传 APK 作为本次工作流的构建产物
       - name: Upload APK artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -176,7 +205,7 @@ jobs:
           path: apk/*.apk
           if-no-files-found: error
 
-      # 9) 可选：推到 tag 时把构建产物绑定到对应 GitHub Release 上
+      # 10) 可选：推到 tag 时把构建产物绑定到对应 GitHub Release 上
       - name: Upload to GitHub Release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
