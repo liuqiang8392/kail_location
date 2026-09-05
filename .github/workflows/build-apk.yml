@@ -116,6 +116,30 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # 5.5 仓库连通性诊断：轻量 HTTP 探测关键 Maven 端点，打印状态码。
+      #     作用：当出现“依赖找不到 / not found”这类被 Gradle 折叠的错误时，
+      #     这里的 000 / ERR 能直接指出是哪条 Maven 链路连不通，便于定位根因。
+      - name: Diagnose Maven reachability
+        shell: bash
+        run: |
+          echo "== Maven endpoint reachability (HTTP status) =="
+          urls=(
+            "https://repo1.maven.org/maven2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.3.0/com.google.devtools.ksp.gradle.plugin-2.3.0.pom"
+            "https://plugins.gradle.org/m2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.3.0/com.google.devtools.ksp.gradle.plugin-2.3.0.pom"
+            "https://maven.aliyun.com/repository/central/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.3.0/com.google.devtools.ksp.gradle.plugin-2.3.0.pom"
+            "https://dl.google.com/android/maven2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.3.0/com.google.devtools.ksp.gradle.plugin-2.3.0.pom"
+            "https://www.jitpack.io/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.3.0/com.google.devtools.ksp.gradle.plugin-2.3.0.pom"
+          )
+          i=0
+          for u in "${urls[@]}"; do
+            i=$((i+1))
+            code=$(curl -s -o /dev/null --max-time 15 -w '%{http_code}' "$u" || echo "ERR")
+            echo "[$i] $code  <-  $u"
+          done
+          echo "-------------------------------------------"
+          echo "提示：200=有此文件;404=仓库无此版本;000/ERR=此端点连不通(TLS/DNS/被墙等)。"
+          echo "000/ERR 的端点，正是 Gradle 解析时可能被折叠成 'not found' 的元凶。"
+
       # 6.（可选）若配置了签名密钥，把它(base64)解码存到工作区，供下面第 9
       #    步用 SDK 自带 apksigner 对 release 补签。不修改业务 build 脚本，
       #    以免破坏常规本地开发构建。
