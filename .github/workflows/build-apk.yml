@@ -123,22 +123,28 @@ jobs:
         shell: bash
         run: |
           echo "== Maven endpoint reachability (HTTP status) =="
+          # NOTE: keep the KSP version probed in sync with the version declared
+          # in the root build.gradle.kts otherwise the output is misleading.
+          KSPVER="2.2.0-2.0.2"
           urls=(
-            "https://repo1.maven.org/maven2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.3.0/com.google.devtools.ksp.gradle.plugin-2.3.0.pom"
-            "https://plugins.gradle.org/m2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.3.0/com.google.devtools.ksp.gradle.plugin-2.3.0.pom"
-            "https://maven.aliyun.com/repository/central/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.3.0/com.google.devtools.ksp.gradle.plugin-2.3.0.pom"
-            "https://dl.google.com/android/maven2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.3.0/com.google.devtools.ksp.gradle.plugin-2.3.0.pom"
-            "https://www.jitpack.io/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.3.0/com.google.devtools.ksp.gradle.plugin-2.3.0.pom"
+            "https://repo1.maven.org/maven2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/${KSPVER}/com.google.devtools.ksp.gradle.plugin-${KSPVER}.pom"
+            "https://plugins.gradle.org/m2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/${KSPVER}/com.google.devtools.ksp.gradle.plugin-${KSPVER}.pom"
+            "https://maven.aliyun.com/repository/central/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/${KSPVER}/com.google.devtools.ksp.gradle.plugin-${KSPVER}.pom"
+            "https://maven.aliyun.com/repository/gradle-plugin/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/${KSPVER}/com.google.devtools.ksp.gradle.plugin-${KSPVER}.pom"
+            "https://dl.google.com/android/maven2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/${KSPVER}/com.google.devtools.ksp.gradle.plugin-${KSPVER}.pom"
+            "https://www.jitpack.io/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/${KSPVER}/com.google.devtools.ksp.gradle.plugin-${KSPVER}.pom"
           )
           i=0
           for u in "${urls[@]}"; do
             i=$((i+1))
-            code=$(curl -s -o /dev/null --max-time 15 -w '%{http_code}' "$u" || echo "ERR")
+            code=$(curl -s -o /dev/null --max-time 20 -w '%{http_code}' "$u" || echo "ERR")
             echo "[$i] $code  <-  $u"
           done
           echo "-------------------------------------------"
-          echo "提示：200=有此文件;404=仓库无此版本;000/ERR=此端点连不通(TLS/DNS/被墙等)。"
+          echo "probe target KSP version = ${KSPVER}"
+          echo "提示：200=有此文件;404=仓库无此版本;000/ERR=此端点连不通(TLS/DNS/被墙/超时等)。"
           echo "000/ERR 的端点，正是 Gradle 解析时可能被折叠成 'not found' 的元凶。"
+          echo "若上面多数为 200 仍报 not found，则是 Gradle 缓存了缺失判定 → 用 --refresh-dependencies / 清 Gradle cache。"
 
       # 6.（可选）若配置了签名密钥，把它(base64)解码存到工作区，供下面第 9
       #    步用 SDK 自带 apksigner 对 release 补签。不修改业务 build 脚本，
@@ -205,7 +211,7 @@ jobs:
           while true; do
             attempts=$((attempts + 1))
             echo "======== Gradle attempt ${attempts}/3 ========"
-            if ./gradlew --no-daemon --stacktrace ${tasks_arg}; then
+            if ./gradlew --no-daemon --stacktrace --refresh-dependencies ${tasks_arg}; then
               echo "Gradle build succeeded."
               exit 0
             fi
