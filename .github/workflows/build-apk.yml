@@ -1,215 +1,56 @@
-name: Build APK
+name: Android APK Build
 
-# ============================================================================
-# 触发方式：
-#   - 手动触发（工作流页面上的 "Run workflow" 按钮，最常用）
-#   - 推送 tag（例如 v1.7.0）时
-#   - 推送/合并到 main 分支（默认注释掉，需要可取消注释）
-# ============================================================================
 on:
-  workflow_dispatch:
-    inputs:
-      build_type:
-        description: '要构建的变体（debug 可直接安装，release 需签名配置）'
-        required: true
-        default: 'debug'
-        type: choice
-        options:
-          - debug
-          - release
-      # tag 上自动触发时默认构建 debug 方便快速验收
   push:
-    tags:
-      - 'v*'
-  # pull_request:
-  #   branches: [ main ]
-  # push:
-  #   branches: [ main ]
-
-# 允许手动重新执行当前 job（避免同一次触发被重复排队）
-concurrency:
-  group: build-apk-${{ github.ref }}
-  cancel-in-progress: true
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) 拉取代码（含子模块，若项目日后加了 submodule 会一并拉取）
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
-      # 由 push 的 tag 自动触发时，build_type 取默认值；这里给行动态确定性
-      - name: Resolve build type
-        id: type
-        run: |
-          BT="${{ github.event.inputs.build_type || 'debug' }}"
-          echo "build_type=${BT}" >> "$GITHUB_OUTPUT"
-
-      # 2) Java 环境：本项目 app 的 jvmTarget 是 11，但 NewBlackbox:Bcore 的
-      #    Groovy build（NewBlackbox/Bcore/build.gradle）把 sourceCompatibility /
-      #    targetCompatibility 设为 Java 21，因此 Gradle daemon 需跑在 JDK 21+
-      #    才能输出 -target 21 字节码。统一用 JDK 21（Gradle 8.13 / AGP /
-      #    Kotlin / KSP 均支持）。
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle   # 自动缓存 Gradle 依赖
+          cache: gradle
 
-      # 3) 环境校验（打印版本便于排错）
-      - name: Show toolchain versions
-        run: |
-          java -version
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          ls "$ANDROID_HOME" 2>/dev/null || true
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      # 4) 准备原生构建工具链：
-      #    项目用 CMake + NDK（NewBlackbox:Bcore 指定 ndkVersion 29.0.13846066）。
-      #    ubuntu-latest 镜像自带部分 SDK，这里确保关键组件齐全。
-      - name: Ensure NDK & CMake on GitHub runner
-        run: |
-          SDK_MGR="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -f "$SDK_MGR" ]; then
-            SDK_MGR="$ANDROID_HOME/cmdline-tools/bin/sdkmanager"
-          fi
-          echo "Using sdkmanager: $SDK_MGR"
-          # 静默接受所有许可（runner 环境内已授权，此处主要为 NDK/CMake）
-          yes | "$SDK_MGR" --licenses >/dev/null 2>&1 || true
-          "$SDK_MGR" --install "ndk;29.0.13846066" "cmake;3.22.1" >/dev/null
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
-
-      # 5) 瓶颈诊断：KSP 插件 marker 只发布在 Maven Central(repo1) 和
-      #    Gradle Plugin Portal，**不发到 Google Maven(dl.google.com 404)**。
-      #    一旦 GitHub runner 到这些境外端点瞬时连不通，Gradle 便会报
-      #    "was not found"。此处先各打一次 HTTP 状态码，一眼定位是哪个端点
-      #    在该 job 里不可达(000/ERR=不通, 200=OK)。
-      - name: Diagnose KSP / Maven reachability
+      - name: Accept Android SDK licenses
         shell: bash
         run: |
-          KSP="2.2.0-2.0.2"
-          P="com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin"
-          for u in \
-            "https://repo1.maven.org/maven2/$P/$KSP/$P-$KSP.pom" \
-            "https://plugins.gradle.org/m2/$P/$KSP/$P-$KSP.pom" \
-            "https://dl.google.com/android/maven2/$P/$KSP/$P-$KSP.pom" \
-            "https://maven.aliyun.com/repository/central/$P/$KSP/$P-$KSP.pom" \
-            "https://maven.aliyun.com/repository/google/$P/$KSP/$P-$KSP.pom" \
-            "https://www.jitpack.io/$P/$KSP/$P-$KSP.pom"; do
-            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$u" 2>/dev/null || echo ERR)
-            echo "$code  <-  $u"
-          done
-          echo "提示: KSP 2.2.x 在 repo1/plugins.gradle.org 应返回 200; dl.google 405/404 属正常(它不托管 KSP marker)"
-          echo "000/ERR 的端点是该次构建解析失败的真正元凶"
+          set +o pipefail
+          yes 2>/dev/null | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses --sdk_root="$ANDROID_HOME" >/dev/null || true
 
-      # 6) 真正编译。境外 Maven 链路偶发抖动 → 加 --refresh-dependencies
-      #    避免 Gradle 把上一次"缺失"判定缓存住，并整段最多重试 3 次自愈。
-      - name: Build APK (with retry)
+      - name: Install Android SDK packages
         shell: bash
         run: |
-          chmod +x gradlew
-          BT="${{ steps.type.outputs.build_type }}"
-          if [ "$BT" = "release" ]; then TASK=":app:assembleRelease"; else TASK=":app:assembleDebug"; fi
-          attempts=1; max=3
-          while :; do
-            echo "======== Gradle attempt ${attempts}/${max} ========"
-            if ./gradlew "$TASK" --no-daemon --refresh-dependencies --stacktrace --console=plain; then
-              exit 0
-            fi
-            if [ "$attempts" -ge "$max" ]; then exit 1; fi
-            echo "Attempt ${attempts} failed; retrying in 20s..."; sleep 20
-            attempts=$((attempts + 1))
-          done
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "cmake;3.22.1" \
+            "ndk;26.3.11579264"
 
-      # 7) 收集构建产物统一拷贝到 apk/ 目录，方便上传与签名处理
-      - name: Gather APK outputs
-        id: gather
-        shell: bash
-        run: |
-          mkdir -p apk
-          SRC="app/build/outputs/apk"
-          # debug 变体输出 /debug/app-debug.apk
-          # release 变体输出 /release/app-release-unsigned.apk
-          find "$SRC" -name '*.apk' -type f | while read -r f; do
-            echo "found: $f"
-          done
+      - name: Grant execute permission for Gradlew
+        run: chmod +x ./gradlew
 
-          cp "$SRC/debug/app-debug.apk"            apk/app-debug.apk 2>/dev/null || true
-          cp "$SRC/release/app-release-unsigned.apk" apk/app-release-unsigned.apk 2>/dev/null || true
+      - name: Build release APK
+        run: ./gradlew assembleRelease --no-daemon
 
-          if ls apk/*.apk >/dev/null 2>&1; then
-            echo "built=yes"
-          else
-            echo "built=no"
-            echo "::warning::No APK found under $SRC"
-          fi
-
-      # 8) 可选：为 release 产出一个可直接安装的已签名 APK。
-      #    仅在：
-      #       - build_type = release
-      #       - 且仓库已配置如下 Secrets 时生效：
-      #          SIGNING_KEYSTORE_B64  (jks 文件的 base64)
-      #          SIGNING_KEYSTORE_PASS
-      #          SIGNING_KEY_ALIAS
-      #          SIGNING_KEY_PASS
-      #    未配置时保留生成的未签名 app-release-unsigned.apk。
-      - name: Sign release APK (optional)
-        if: steps.type.outputs.build_type == 'release'
-        shell: bash
-        env:
-          KS_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
-          KS_PASS: ${{ secrets.SIGNING_KEYSTORE_PASS }}
-          KS_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          KEY_PASS: ${{ secrets.SIGNING_KEY_PASS }}
-        run: |
-          UNSIGNED="apk/app-release-unsigned.apk"
-          if [ -z "$KS_B64" ] || [ ! -f "$UNSIGNED" ]; then
-            echo "::warning::No signing keystore configured; skipping signing. (unsigned APK kept)"
-            exit 0
-          fi
-
-          # 还原 keystore
-          echo "$KS_B64" | base64 -d > keystore.jks
-
-          # 定位 build-tools 中的 apksigner
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort | tail -n1)
-          echo "using: $APKSIGNER"
-
-          # 先做 zipalign 对齐，再用 apksigner 签名（v1+v2+v3）
-          ZIPALIGN=$(find "$ANDROID_HOME/build-tools" -name zipalign -type f | sort | tail -n1)
-          "$ZIPALIGN" -p -f 4 "$UNSIGNED" apk/aligned.apk
-
-          "$APKSIGNER" sign \
-            --ks keystore.jks \
-            --ks-pass "pass:${KS_PASS}" \
-            --key-pass "pass:${KEY_PASS}" \
-            --ks-key-alias "${KS_ALIAS}" \
-            --zipalign "$ZIPALIGN" \
-            --out apk/app-release-signed.apk \
-            apk/aligned.apk
-
-          echo "signed=yes"
-
-      # 9) 上传 APK 作为本次工作流的构建产物
-      - name: Upload APK artifacts
-        if: always()
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: apk-${{ steps.type.outputs.build_type }}-${{ github.sha }}
-          path: apk/*.apk
+          name: kail-location-release-apk
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
-
-      # 10) 可选：推到 tag 时把构建产物绑定到对应 GitHub Release 上
-      - name: Upload to GitHub Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: apk/*.apk
-          fail_on_unmatched_files: false
-          generate_release_notes: true
