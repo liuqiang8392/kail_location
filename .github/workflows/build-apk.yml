@@ -166,7 +166,9 @@ jobs:
           esac
           echo "tasks=${tasks}" >> "$GITHUB_OUTPUT"
 
-      # 8. 真正编译。native(NDK/CMake)+Slim-Dex(D8) 是重头，见工程 app/build.gradle.kts。
+      # 8. 真正编译。native(NDK/CMake)+Slim-Dex(D8) 是重头，见 app/build.gradle.kts。
+      #    Gradle 初次要联网解析大量依赖 / AGP / NDK 组件，偶发到 Maven Central
+      #    或镜像仓库的瞬时网络失败会把整次构建带崩；这里强加重试自愈(至多 3 次)。
       - name: Build with Gradle
         shell: bash
         env:
@@ -174,8 +176,22 @@ jobs:
           ANDROID_USER_HOME: ~/.android
         run: |
           set -eux
-          # 多任务时开 worker 并行；单任务也稳定。
-          ./gradlew --no-daemon --stacktrace ${{ steps.resolve.outputs.tasks }}
+          tasks_arg="${{ steps.resolve.outputs.tasks }}"
+          attempts=0
+          while true; do
+            attempts=$((attempts + 1))
+            echo "======== Gradle attempt ${attempts}/3 ========"
+            if ./gradlew --no-daemon --stacktrace ${tasks_arg}; then
+              echo "Gradle build succeeded."
+              exit 0
+            fi
+            if [[ "${attempts}" -ge 3 ]]; then
+              echo "Gradle build failed after 3 attempts."
+              exit 1
+            fi
+            echo "Gradle attempt ${attempts} failed; retrying in 20s..."
+            sleep 20
+          done
 
       # 9. 收集并（可选）补签 APK 产物，方便一起上传
       - name: Collect APK artifacts
