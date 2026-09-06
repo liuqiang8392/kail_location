@@ -24,30 +24,42 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # ====== 自动修正 KSP 版本（将无效的 2.2.0-2.0.2 改为可用的 2.2.0-1.0.20） ======
-      - name: Auto-fix KSP version
+      # ====== 自动修复 KSP 版本和仓库配置 ======
+      - name: Auto-fix KSP configuration
         run: |
-          # 修正根目录 build.gradle.kts 中的 KSP 版本
+          # 1. 修正 KSP 版本为正确的 2.2.0-2.0.2
           if [ -f "build.gradle.kts" ]; then
-            sed -i 's/version "2\.2\.0-2\.0\.2"/version "2.2.0-1.0.20"/g' build.gradle.kts
-            echo "✅ Root build.gradle.kts fixed"
+            sed -i 's/version "2\.2\.0-1\.0\.20"/version "2.2.0-2.0.2"/g' build.gradle.kts
+            echo "✅ KSP version fixed to 2.2.0-2.0.2"
           fi
 
-          # 修正 app/build.gradle.kts（如果存在类似声明）
-          if [ -f "app/build.gradle.kts" ]; then
-            sed -i 's/version "2\.2\.0-2\.0\.2"/version "2.2.0-1.0.20"/g' app/build.gradle.kts
-            echo "✅ app/build.gradle.kts fixed"
+          # 2. 在 settings.gradle.kts 中确保包含 mavenCentral()
+          if [ -f "settings.gradle.kts" ]; then
+            # 检查是否已有 mavenCentral()
+            if ! grep -q 'mavenCentral()' settings.gradle.kts; then
+              # 在 pluginManagement 的 repositories 块中添加 mavenCentral()
+              sed -i '/pluginManagement {/,/}/ {
+                /repositories {/,/}/ {
+                  /google()/a\        mavenCentral()
+                }
+              }' settings.gradle.kts
+              echo "✅ Added mavenCentral() to settings.gradle.kts"
+            else
+              echo "✅ mavenCentral() already exists in settings.gradle.kts"
+            fi
           fi
 
-          # 修正 gradle/libs.versions.toml（如果存在）
-          if [ -f "gradle/libs.versions.toml" ]; then
-            sed -i 's/ksp = "2\.2\.0-2\.0\.2"/ksp = "2.2.0-1.0.20"/g' gradle/libs.versions.toml
-            echo "✅ gradle/libs.versions.toml fixed"
+          # 3. 如果 settings.gradle.kts 不存在，尝试在 build.gradle.kts 的 pluginManagement 中添加
+          if [ ! -f "settings.gradle.kts" ] && [ -f "build.gradle.kts" ]; then
+            if ! grep -q 'mavenCentral()' build.gradle.kts; then
+              sed -i '/pluginManagement {/,/}/ {
+                /repositories {/,/}/ {
+                  /google()/a\        mavenCentral()
+                }
+              }' build.gradle.kts
+              echo "✅ Added mavenCentral() to build.gradle.kts"
+            fi
           fi
-
-          # 检查是否还有未替换的残留（可选）
-          echo "🔍 Checking if any '2.2.0-2.0.2' remains..."
-          grep -r "2\.2\.0-2\.0\.2" . --include="*.gradle.kts" --include="*.toml" || echo "✅ No remaining invalid version found."
         shell: bash
 
       - name: Cache Gradle packages
@@ -64,7 +76,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew :app:assembleDebug
+        run: ./gradlew :app:assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
