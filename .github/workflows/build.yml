@@ -24,18 +24,34 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 【新增】自动修正 KSP 版本（将错误版本替换为有效版本）
-      - name: Fix KSP version in build.gradle.kts
+      # ====== 自动修复 KSP 版本（不修改源码仓库） ======
+      - name: Auto-fix KSP version
         run: |
-          # 如果根目录是 build.gradle.kts，直接替换
+          # 在根目录 build.gradle.kts 中，将已有的错误版本替换为正确版本
           if [ -f "build.gradle.kts" ]; then
-            sed -i 's/version "2\.2\.0-2\.0\.2"/version "2.0.2-1.0.20"/g' build.gradle.kts
+            sed -i 's/version "2\.0\.2-1\.0\.20"/version "2.2.0-2.0.2"/g' build.gradle.kts
+            # 如果插件声明没有版本，则添加版本号
+            if grep -q 'id("com.google.devtools.ksp")' build.gradle.kts && ! grep -q 'id("com.google.devtools.ksp").*version' build.gradle.kts; then
+              sed -i 's/id("com.google.devtools.ksp")/id("com.google.devtools.ksp") version "2.2.0-2.0.2"/g' build.gradle.kts
+            fi
           fi
-          # 如果版本定义在 libs.versions.toml 中，也可替换（根据实际情况调整）
+
+          # 同样处理 app/build.gradle.kts（如果存在）
+          if [ -f "app/build.gradle.kts" ]; then
+            sed -i 's/version "2\.0\.2-1\.0\.20"/version "2.2.0-2.0.2"/g' app/build.gradle.kts
+            if grep -q 'id("com.google.devtools.ksp")' app/build.gradle.kts && ! grep -q 'id("com.google.devtools.ksp").*version' app/build.gradle.kts; then
+              sed -i 's/id("com.google.devtools.ksp")/id("com.google.devtools.ksp") version "2.2.0-2.0.2"/g' app/build.gradle.kts
+            fi
+          fi
+
+          # 如果版本定义在 gradle/libs.versions.toml 中，也进行替换
           if [ -f "gradle/libs.versions.toml" ]; then
-            sed -i 's/ksp = "2\.2\.0-2\.0\.2"/ksp = "2.0.2-1.0.20"/g' gradle/libs.versions.toml
+            sed -i 's/ksp = "2\.0\.2-1\.0\.20"/ksp = "2.2.0-2.0.2"/g' gradle/libs.versions.toml
+            # 如果 toml 中没有定义 ksp，则添加（但这里不额外添加，以免破坏结构）
           fi
-        # 注意：替换的版本号请根据你的 Kotlin 版本选择正确的 KSP 版本
+
+          echo "KSP version has been fixed to 2.2.0-2.0.2"
+        shell: bash
 
       - name: Cache Gradle packages
         uses: actions/cache@v3
