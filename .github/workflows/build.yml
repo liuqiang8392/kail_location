@@ -24,31 +24,21 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # ====== 创建 init.gradle 以注入 mavenCentral() 仓库 ======
-      - name: Create init.gradle to add mavenCentral()
+      # ====== 创建 init.gradle：仅覆盖 pluginManagement 仓库 ======
+      - name: Create init.gradle
         run: |
           cat > init.gradle << 'EOF'
           settingsEvaluated { settings ->
+              // 完全替换 pluginManagement 的仓库列表，确保 mavenCentral 在最前面
               settings.pluginManagement {
                   repositories {
                       mavenCentral()
                       gradlePluginPortal()
                       google()
-                      // 保留可能已存在的阿里云等，但不冲突
+                      // 如果你需要保留阿里云镜像，可以添加，但 KSP 不在此，所以非必须
+                      // maven { url = "https://maven.aliyun.com/repository/central" }
+                      // maven { url = "https://maven.aliyun.com/repository/google" }
                   }
-              }
-          }
-          // 同时为所有项目添加仓库（可选）
-          allprojects {
-              buildscript {
-                  repositories {
-                      mavenCentral()
-                      google()
-                  }
-              }
-              repositories {
-                  mavenCentral()
-                  google()
               }
           }
           EOF
