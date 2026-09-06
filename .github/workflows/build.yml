@@ -24,25 +24,29 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # ====== 创建 init.gradle，完全接管 pluginManagement 仓库 ======
-      - name: Create init.gradle
+      # ====== 创建 init.gradle，覆盖所有仓库配置 ======
+      - name: Create init.gradle to override repositories
         run: |
           cat > init.gradle << 'EOF'
           settingsEvaluated { settings ->
-              // 清空并重新设置 pluginManagement 的仓库，确保 mavenCentral 在最前
+              // 1. 覆盖 pluginManagement 仓库（用于插件解析）
               settings.pluginManagement {
                   repositories.clear()
                   repositories {
                       mavenCentral()
                       google()
                       gradlePluginPortal()
-                      // 保留常用镜像（可选）
                       maven { url = "https://www.jitpack.io" }
-                      maven { url = "https://maven.aliyun.com/repository/releases" }
-                      maven { url = "https://maven.aliyun.com/repository/google" }
-                      maven { url = "https://maven.aliyun.com/repository/central" }
-                      maven { url = "https://maven.aliyun.com/repository/gradle-plugin" }
-                      maven { url = "https://maven.aliyun.com/repository/public" }
+                  }
+              }
+
+              // 2. 覆盖 dependencyResolutionManagement 仓库（用于依赖解析）
+              settings.dependencyResolutionManagement {
+                  repositories.clear()
+                  repositories {
+                      mavenCentral()
+                      google()
+                      maven { url = "https://www.jitpack.io" }
                   }
               }
           }
