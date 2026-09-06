@@ -24,44 +24,30 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # ====== 核心修复：在 settings.gradle.kts 中插入 mavenCentral() ======
-      - name: Fix plugin repositories in settings.gradle.kts
+      # ====== 创建 init.gradle，完全接管 pluginManagement 仓库 ======
+      - name: Create init.gradle
         run: |
-          echo "🔧 Fixing settings.gradle.kts to include mavenCentral()..."
-          
-          # 如果 settings.gradle.kts 不存在，则报错退出
-          if [ ! -f "settings.gradle.kts" ]; then
-            echo "❌ settings.gradle.kts not found!"
-            exit 1
-          fi
-
-          # 检查是否已经包含 mavenCentral()
-          if grep -q 'mavenCentral()' settings.gradle.kts; then
-            echo "✅ mavenCentral() already present."
-          else
-            # 在 pluginManagement 的 repositories 块中，在 google() 后插入 mavenCentral()
-            # 注意：这里采用精确匹配，避免误改其他位置
-            sed -i '/pluginManagement {/,/}/ {
-              /repositories {/,/}/ {
-                /google()/a\        mavenCentral()
+          cat > init.gradle << 'EOF'
+          settingsEvaluated { settings ->
+              // 清空并重新设置 pluginManagement 的仓库，确保 mavenCentral 在最前
+              settings.pluginManagement {
+                  repositories.clear()
+                  repositories {
+                      mavenCentral()
+                      google()
+                      gradlePluginPortal()
+                      // 保留常用镜像（可选）
+                      maven { url = "https://www.jitpack.io" }
+                      maven { url = "https://maven.aliyun.com/repository/releases" }
+                      maven { url = "https://maven.aliyun.com/repository/google" }
+                      maven { url = "https://maven.aliyun.com/repository/central" }
+                      maven { url = "https://maven.aliyun.com/repository/gradle-plugin" }
+                      maven { url = "https://maven.aliyun.com/repository/public" }
+                  }
               }
-            }' settings.gradle.kts
-
-            # 如果上面的 sed 没有生效（可能结构不同），尝试在第一个 repositories 块中插入
-            if ! grep -q 'mavenCentral()' settings.gradle.kts; then
-              echo "⚠️  First sed attempt didn't add mavenCentral(), trying alternative..."
-              # 更通用的插入：在包含 'repositories {' 的行后插入，但仅限 pluginManagement 块内
-              # 使用更复杂的 awk 逻辑，或简单地在文件开头插入整个 pluginManagement 块（危险）
-              # 这里用 perl 或直接替换文件内容（如果项目只有简单结构）
-              # 但为了安全，我们直接在 google() 后插入（可能 google() 不在 pluginManagement 中，但大概率在）
-              sed -i '/google()/a\        mavenCentral()' settings.gradle.kts
-            fi
-          fi
-
-          # 打印修改后的 pluginManagement 部分，方便调试
-          echo "📄 Current pluginManagement block:"
-          grep -A10 'pluginManagement {' settings.gradle.kts || echo "No pluginManagement block found"
-        shell: bash
+          }
+          EOF
+          echo "✅ init.gradle created"
 
       - name: Cache Gradle packages
         uses: actions/cache@v3
@@ -77,7 +63,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: ./gradlew --init-script init.gradle :app:assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
