@@ -24,33 +24,30 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # ====== 自动修复 KSP 版本（不修改源码仓库） ======
+      # ====== 自动修正 KSP 版本（将无效的 2.2.0-2.0.2 改为可用的 2.2.0-1.0.20） ======
       - name: Auto-fix KSP version
         run: |
-          # 在根目录 build.gradle.kts 中，将已有的错误版本替换为正确版本
+          # 修正根目录 build.gradle.kts 中的 KSP 版本
           if [ -f "build.gradle.kts" ]; then
-            sed -i 's/version "2\.0\.2-1\.0\.20"/version "2.2.0-2.0.2"/g' build.gradle.kts
-            # 如果插件声明没有版本，则添加版本号
-            if grep -q 'id("com.google.devtools.ksp")' build.gradle.kts && ! grep -q 'id("com.google.devtools.ksp").*version' build.gradle.kts; then
-              sed -i 's/id("com.google.devtools.ksp")/id("com.google.devtools.ksp") version "2.2.0-2.0.2"/g' build.gradle.kts
-            fi
+            sed -i 's/version "2\.2\.0-2\.0\.2"/version "2.2.0-1.0.20"/g' build.gradle.kts
+            echo "✅ Root build.gradle.kts fixed"
           fi
 
-          # 同样处理 app/build.gradle.kts（如果存在）
+          # 修正 app/build.gradle.kts（如果存在类似声明）
           if [ -f "app/build.gradle.kts" ]; then
-            sed -i 's/version "2\.0\.2-1\.0\.20"/version "2.2.0-2.0.2"/g' app/build.gradle.kts
-            if grep -q 'id("com.google.devtools.ksp")' app/build.gradle.kts && ! grep -q 'id("com.google.devtools.ksp").*version' app/build.gradle.kts; then
-              sed -i 's/id("com.google.devtools.ksp")/id("com.google.devtools.ksp") version "2.2.0-2.0.2"/g' app/build.gradle.kts
-            fi
+            sed -i 's/version "2\.2\.0-2\.0\.2"/version "2.2.0-1.0.20"/g' app/build.gradle.kts
+            echo "✅ app/build.gradle.kts fixed"
           fi
 
-          # 如果版本定义在 gradle/libs.versions.toml 中，也进行替换
+          # 修正 gradle/libs.versions.toml（如果存在）
           if [ -f "gradle/libs.versions.toml" ]; then
-            sed -i 's/ksp = "2\.0\.2-1\.0\.20"/ksp = "2.2.0-2.0.2"/g' gradle/libs.versions.toml
-            # 如果 toml 中没有定义 ksp，则添加（但这里不额外添加，以免破坏结构）
+            sed -i 's/ksp = "2\.2\.0-2\.0\.2"/ksp = "2.2.0-1.0.20"/g' gradle/libs.versions.toml
+            echo "✅ gradle/libs.versions.toml fixed"
           fi
 
-          echo "KSP version has been fixed to 2.2.0-2.0.2"
+          # 检查是否还有未替换的残留（可选）
+          echo "🔍 Checking if any '2.2.0-2.0.2' remains..."
+          grep -r "2\.2\.0-2\.0\.2" . --include="*.gradle.kts" --include="*.toml" || echo "✅ No remaining invalid version found."
         shell: bash
 
       - name: Cache Gradle packages
